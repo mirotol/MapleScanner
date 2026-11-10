@@ -6,6 +6,12 @@ A Windows app that shows MapleStory Classic Free Market prices while you walk th
 
 Everything comes from the picture of the game window, the same as a screenshot. MapleScanner never touches the game's memory, files, network traffic or ports. The code is open so anyone can check this.
 
+## Installing
+
+Download `MapleScanner-Setup-<version>.exe` from [Releases](https://github.com/mirotol/MapleScanner/releases) and run it. The app checks GitHub for a newer version each time it starts, downloads it in the background and installs it when you close the app.
+
+The installer isn't code-signed yet, so Windows shows "Windows protected your PC". Choose **More info**, then **Run anyway**.
+
 ## Running from source
 
 Needs Node.js 24 or newer and Windows.
@@ -17,7 +23,7 @@ npm start
 
 - `npm test` runs the price, name, database and tooltip card tests.
 - `node serve.js` runs the browser version on http://localhost:8123 (Edge or Chrome).
-- `npm run dist` builds the Windows app into `dist/`.
+- `npm run dist` builds the Windows installer into `dist/`.
 - `npm run items` refreshes `osms-items.json` from OSMS Data Explorer.
 
 The reading code was tuned on real game screenshots. Those stay on the author's computer and aren't in this repository, so `npm test` uses none of them.

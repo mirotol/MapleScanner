@@ -2,6 +2,7 @@
 const { app, BrowserWindow, Menu, desktopCapturer, globalShortcut, ipcMain, screen, session } = require('electron');
 const path = require('path');
 const { execFile } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 const { start, readSettings, saveSettings, TEXT_SIZES } = require('../serve.js');
 
 // The app was called "Maple Scanner" until Nov 10, and its data folder keeps that name so every
@@ -155,6 +156,15 @@ async function createMainWindow() {
   await main.loadURL(origin);
 }
 
+// Installed copies look for a newer release on GitHub at start, download it in the background and
+// install it when the app is next closed, so nothing interrupts play. No pop-up or notification.
+// Running from source (npm start) or a failed check does nothing.
+function checkForUpdates() {
+  if (!app.isPackaged) return;
+  autoUpdater.on('error', err => console.error('Update check failed:', err?.message ?? err));
+  autoUpdater.checkForUpdates().catch(() => {});
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -176,6 +186,7 @@ if (!app.requestSingleInstanceLock()) {
     // While Settings waits for a new key, so the old one reaches the page instead of the card.
     ipcMain.on('pause-hotkey', (event, paused) => { if (paused) globalShortcut.unregisterAll(); else useHotkey(hotkey); });
     allowCapture();
+    checkForUpdates();
     return createMainWindow();
   });
 }

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Live prices for MapleStory Classic shops, read from your game window",
   "license": "GPL-3.0-or-later",
+  "author": "mirotol",
   "private": true,
   "main": "desktop/main.js",
   "scripts": {
@@ -11,10 +12,12 @@
     "serve": "node serve.js",
     "test": "node --test test/pricing.test.js test/market.test.js test/scanner.test.js",
     "items": "node tools/update-items.js",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win nsis --publish never",
+    "release": "electron-builder --win nsis --publish always"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",
+    "electron-updater": "^6.8.11",
     "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
@@ -22,7 +25,7 @@
     "electron-builder": "^26.18.0"
   },
   "build": {
-    "appId": "local.maplescanner",
+    "appId": "io.github.mirotol.maplescanner",
     "directories": {
       "output": "dist"
     },
@@ -41,11 +44,18 @@
       "!**/*.map"
     ],
     "win": {
-      "target": "portable",
+      "target": "nsis",
       "signAndEditExecutable": false
     },
-    "portable": {
-      "artifactName": "MapleScanner.exe"
+    "nsis": {
+      "artifactName": "MapleScanner-Setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "mirotol",
+      "repo": "MapleScanner",
+      "releaseType": "draft"
     }
   }
 }
