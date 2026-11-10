@@ -22,3 +22,8 @@ settings.json
 
 # Personal tool settings with local paths
 .claude/
+
+# Local Worker secrets and data
+cloud/.dev.vars
+cloud/.wrangler/
+.wrangler/

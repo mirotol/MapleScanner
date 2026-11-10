@@ -1,10 +1,14 @@
 # MapleScanner
 
-A Windows app that shows MapleStory Classic Free Market prices while you walk the stalls. It reads the shops on your screen and builds a price database on your own PC.
+A Windows app that shows MapleStory Classic Free Market prices while you walk the stalls. It reads the shops on your screen, and every player's scans go into one shared price database, so everyone gets prices from everyone.
 
 ## It only reads the screen
 
 Everything comes from the picture of the game window, the same as a screenshot. MapleScanner never touches the game's memory, files, network traffic or ports. The code is open so anyone can check this.
+
+## What it sends
+
+MapleScanner needs internet to show prices. It sends the shop listings it read off your screen (item, seller, amount, price, channel, room and shop title) with an anonymous key made when the app is installed. The key identifies the install, not you, and the server keeps only a hash of it, so bad data can be traced and removed. Your IP address isn't stored. Seller names are public, as they are in the game. Nothing else leaves your PC: no screenshots, no account details, nothing about the game itself.
 
 ## Installing
 
@@ -21,8 +25,9 @@ npm install
 npm start
 ```
 
-- `npm test` runs the price, name, database and tooltip card tests.
-- `node serve.js` runs the browser version on http://localhost:8123 (Edge or Chrome).
+- `npm test` runs the price, name, tooltip card and price server tests.
+- `npm run cloud:dev` runs the price server (a Cloudflare Worker with D1, in `cloud/`) locally on http://127.0.0.1:8787. Apply its schema first with `npx wrangler d1 migrations apply maplescanner --local --config cloud/wrangler.jsonc`.
+- `CLOUD_URL=http://127.0.0.1:8787 node serve.js` runs the browser version on http://localhost:8123 (Edge or Chrome) against it.
 - `npm run dist` builds the Windows installer into `dist/`.
 - `npm run items` refreshes `osms-items.json` from OSMS Data Explorer.
 

@@ -1,7 +1,6 @@
 // Live capture, per-shop results, saving to the price database and the price panel.
 const $ = id => document.getElementById(id);
 const panel = $('panel'), panelBar = panel.querySelector('.bar'), panelTop = $('panelTop'), panelList = $('panelList'), panelFoot = $('panelFoot'), barText = $('barText'), barLive = $('barLive'), barChannel = $('barChannel');
-const OLD_KEYS = { seen: 'scanner.seen.v1', npc: 'scanner.npc.v1' }; // from before the database
 const SCAN_MS = 500, SHOP_TIMEOUT_MS = 4000, MAX_NAME = 80;
 // Every frame is watched for the Change Channel window (watch.js), because a keyboard change
 // is over in less than 200 ms. Full scans stay slower, and only speed up without the watch.
@@ -30,19 +29,19 @@ let realNames = [];       // every item in the game, from osms-items.json. Only 
 let facts = itemFacts({}); // NPC prices, scroll rates and gear slots, from osms-items.json
 const matches = new Map(); // what each read matched, because the same rows are read every scan
 
-// ---------- price database ----------
-let catalog = new Map();  // every item in the database, by name
-let aliases = {};         // { misread name: real name }
+// ---------- shared prices ----------
+// The listings come from the shared price database through the local server, which keeps them in
+// memory (cloud.js). Nothing is stored on this PC.
 let seen = {};            // { item name: recent votes, see marketFor }
-let pending = [];         // listings waiting to be saved
+let cloud = null;         // the price server's status: { online, waiting, blocked, connected }
+let pending = [];         // listings waiting to be handed to the local server
 let saving = false, dbOnline = true;
 
 async function loadState() {
   const state = await api('/api/state');
-  catalog = new Map(state.items.map(i => [i.name, i]));
   matches.clear();
-  aliases = state.aliases;
   seen = state.seen;
+  cloud = state.status;
 }
 
 // Runs after every scan, so listings are kept and retried if the server stops for a while.
@@ -67,26 +66,8 @@ async function saveSightings() {
   render();
 }
 
-// Moves prices saved in this browser by earlier versions into the database.
-async function migrateBrowserData() {
-  const read = key => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
-  const oldSeen = read(OLD_KEYS.seen);
-  if (!oldSeen) return localStorage.removeItem(OLD_KEYS.npc);
-  const rows = [];
-  for (const [name, list] of Object.entries(oldSeen ?? {})) {
-    // only the price per item was kept, and a quantity of 100 preserves fractions of a meso
-    // A throwing star's set size wasn't kept, so its price can't be rebuilt and is left out.
-    for (const e of list) if (e.p > 0 && !facts.recharges(name)) rows.push({ list: 'shop', name, seller: e.s ?? '', qty: 100, price: Math.ceil(e.p * 100), sold: false, at: e.d });
-  }
-  await api('/api/sightings', { rows: rows.filter(r => r.name.length <= MAX_NAME) });
-  localStorage.removeItem(OLD_KEYS.seen);
-  localStorage.removeItem(OLD_KEYS.npc);
-}
-
-// The real name of a read when that's clear, otherwise null. A misread already matched to a real name comes first.
+// The real name of a read when that's clear, otherwise null.
 function knownName(name, cut = isCutOff(name)) {
-  const alias = cut ? null : aliases[norm(name)];
-  if (alias && catalog.has(alias)) return alias;
   const key = `${cut}|${name}`;
   if (!matches.has(key)) matches.set(key, matchName(name, realNames, cut));
   return matches.get(key);
@@ -390,7 +371,13 @@ function idleHtml() {
 // One slot, so the most urgent problem shows. It stays until fixed and needs no click.
 function problemText() {
   if (problem) return problem;
-  if (!dbOnline) return trouble('Price database offline', 'The price database is offline, so new prices are waiting.');
+  if (!dbOnline) return trouble('MapleScanner stopped', "The app's local server stopped answering. Restart MapleScanner.");
+  if (cloud && !cloud.connected) return trouble('No price server', 'No price server is set, so there are no prices and scans are not shared.');
+  if (cloud?.blocked) return trouble('Sharing stopped', 'This install can no longer share its scans. Prices still show.', 'note');
+  if (cloud?.online === false) {
+    const waiting = cloud.waiting ? `, ${cloud.waiting} waiting` : '';
+    return trouble(`Offline${waiting}`, `Can't reach the price server. Prices are from before the connection dropped. New scans${waiting ? ` (${cloud.waiting})` : ''} wait in memory and are sent when it's back, but are lost if the app closes first.`);
+  }
   if (stream && wasFrozen) return trouble('Picture frozen, reconnecting', 'The game picture stopped changing. MapleScanner is reconnecting by itself.');
   if ((stream || (session && !session.closed && session.kind !== 'npc')) && !channel) return trouble('Open Change Channel once', 'Open Change Channel in the game once, so shops save their channel.', 'note');
   return null;
@@ -988,7 +975,6 @@ async function loadHotkey() {
     const list = await api('osms-items.json');
     realNames = list.names;
     facts = itemFacts(list);
-    await migrateBrowserData().catch(console.error); // after the facts, which say what recharges
     settings = await api('/api/settings').catch(err => { console.error(err); return settings; });
     showSettings();
     await loadState();

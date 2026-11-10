@@ -1,28 +1,34 @@
-// Builds a scratch price database of made-up listings, one item for each situation the
-// Prices item card has to handle, so the card can be designed against all of them.
-// Every listing goes in through db.js like a real scan, so only real names and stats that
-// fit are saved. Times are counted back from when it's run, and the same seed gives the
-// same shops, so screenshots can be compared after a change.
+// Fills a local price server (the Worker in cloud/) with made-up listings, one item for each
+// situation the Prices item card has to handle, so the card can be designed against all of them.
+// Every listing goes through the Worker's checks like a real scan, so only real names and stats
+// that fit are kept. Times are counted back from when it's run, and the same seed gives the same
+// shops, so screenshots can be compared after a change.
 //
 // Scans only happen in play sessions, like a real player's: an hour or two most evenings,
 // some days none, over 8 weeks, with one going on now. A listing is seen when the player
 // walks past it, and its sale only if they walk past again later.
 //
-//   node design/mock-db.js [file]           default design/mock/prices.db
-//   DB=design/mock/prices.db node serve.js  then open http://localhost:8123 and the Prices tab
+//   npm run cloud:dev -- --persist-to design/mock/worker     a local Worker with data of its own
+//   node design/mock-db.js [url]                             default http://127.0.0.1:8787
+//   CLOUD_URL=http://127.0.0.1:8787 node serve.js            then open the Prices tab
 //
-// Never point it at a real database: it deletes the file first.
+// The admin token comes from MAPLE_ADMIN_TOKEN, or else cloud/.dev.vars. It only ever writes to a
+// local Worker, never the real price server. Delete design/mock/worker to rebuild from nothing.
 const fs = require('fs');
 const path = require('path');
-const { openDb } = require('../db.js');
 const items = require('../osms-items.json');
 
-const file = path.resolve(process.argv[2] || path.join(__dirname, 'mock', 'prices.db'));
-if (!/mock/i.test(path.basename(path.dirname(file)) + path.basename(file))) {
-  console.error(`Refusing to write ${file}: the folder or file name must contain "mock", because it's deleted first.`);
+const url = (process.argv[2] || 'http://127.0.0.1:8787').replace(/\/$/, '');
+if (!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
+  console.error(`Refusing to write to ${url}: made-up listings only ever go to a local Worker.`);
   process.exit(1);
 }
-for (const f of [file, `${file}-wal`, `${file}-shm`]) fs.rmSync(f, { force: true });
+const devVars = (() => { try { return fs.readFileSync(path.join(__dirname, '..', 'cloud', '.dev.vars'), 'utf8'); } catch { return ''; } })();
+const token = process.env.MAPLE_ADMIN_TOKEN || /^ADMIN_TOKEN\s*=\s*"?([^"\r\n]+)"?/m.exec(devVars)?.[1];
+if (!token) {
+  console.error('Set MAPLE_ADMIN_TOKEN, or ADMIN_TOKEN in cloud/.dev.vars.');
+  process.exit(1);
+}
 
 // The same made-up market every run (mulberry32).
 let seed = 20261110;
@@ -242,18 +248,21 @@ situation('Power Elixir', 'A long list: 70 listings over 3 days across every cha
 
 scans.sort((a, b) => a.at - b.at);
 
-const db = openDb(file);
-let saved = 0, skipped = 0;
-for (const s of scans) {
-  const out = db.addSightings([s]);
-  saved += out.saved;
-  skipped += out.skipped;
-}
-db.close();
-
-const played = sessions.reduce((sum, s) => sum + s.end - s.start, 0) / HOUR;
-const days = new Set(sessions.map(s => new Date(s.start).toDateString())).size;
-console.log(`Wrote ${file}: ${saved} scans saved, ${skipped} skipped.`);
-console.log(`${sessions.length} play sessions on ${days} of the last ${WEEKS * 7} days, ${Math.round(played)} hours in all.\n`);
-for (const s of situations) console.log(`${s.name} (${s.scans} scans)\n  ${s.what}`);
-console.log(`\nServe it with:  DB="${file}" node serve.js`);
+// Each scan is one sighting with its own time, and the Worker merges them by its usual rule.
+(async () => {
+  let saved = 0, skipped = 0;
+  for (let i = 0; i < scans.length; i += 500) {
+    const rows = scans.slice(i, i + 500).map(s => ({ ...s, firstSeen: s.at, lastSeen: s.at }));
+    const res = await fetch(`${url}/v1/admin/import`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ rows, source: 'mock' }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || `The Worker answered ${res.status}`);
+    saved += out.saved;
+    skipped += out.skipped;
+  }
+  const played = sessions.reduce((sum, s) => sum + s.end - s.start, 0) / HOUR;
+  const days = new Set(sessions.map(s => new Date(s.start).toDateString())).size;
+  console.log(`Sent to ${url}: ${saved} scans saved, ${skipped} skipped.`);
+  console.log(`${sessions.length} play sessions on ${days} of the last ${WEEKS * 7} days, ${Math.round(played)} hours in all.\n`);
+  for (const s of situations) console.log(`${s.name} (${s.scans} scans)\n  ${s.what}`);
+  console.log(`\nServe it with:  CLOUD_URL=${url} node serve.js`);
+})().catch(err => { console.error(err.message); process.exit(1); });

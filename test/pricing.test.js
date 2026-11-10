@@ -5,8 +5,6 @@ const { norm, fmt, chartRange, timeTicks, dateText, sameItem, matchName, complet
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
-const { openDb } = require('../db.js');
 const { readSettings, saveSettings, SETTINGS } = require('../serve.js');
 
 test('corrects misreads', () => {
@@ -36,11 +34,6 @@ const realNames = require('../osms-items.json').names;
 test('the bundled item list can be matched against', () => {
   assert.ok(realNames.length > 2000);
   assert.equal(new Set(realNames.map(norm)).size, realNames.length);
-});
-
-test('every starting item is a real name', () => {
-  const seeded = fs.readFileSync(path.join(__dirname, '..', 'items.csv'), 'utf8').split(/\r?\n/).filter(l => l && !l.startsWith('#')).map(l => l.split(',')[0]);
-  assert.deepEqual(seeded.filter(name => !realNames.includes(name)), []);
 });
 
 test('finds the real name behind a read', () => {
@@ -186,19 +179,6 @@ test('says where a shop is', () => {
   assert.equal(whereText({}), '');
 });
 
-const shop = (name, seller, price, extra = {}) => ({ list: 'shop', name, seller, qty: 1, price, sold: false, ...extra });
-
-test('seeing a listing again does not count it twice', () => {
-  const db = openDb(':memory:');
-  db.addSightings([shop('Red Potion', 'a', 50)]);
-  db.addSightings([shop('Red Potion', 'a', 50)]);
-  assert.equal(db.state().items[0].listings, 1);
-  assert.equal(db.state().seen['Red Potion'].length, 1);
-  db.addSightings([shop('Red Potion', 'a', 50, { sold: true })]);
-  assert.equal(db.state().items[0].listings, 2);
-  assert.equal(db.state().items[0].soldListings, 1);
-});
-
 // A throwing star's count is what's left in one set. "4 for 600,000" sold one Ilbi set for
 // 600,000, and reading it as 150,000 a star made a scam look like a deal.
 test('a throwing star is priced by the set, and arrows by the arrow', () => {
@@ -212,56 +192,6 @@ test('a throwing star is priced by the set, and arrows by the arrow', () => {
   // equipment never stacks, so "11 for 18,777" on a claw is a misread and one claw is 18,777
   assert.ok(facts.single('Reef Claw') && !facts.single('Red Potion') && !facts.single('Ilbi Throwing Stars'));
   assert.equal(facts.unitPrice('Reef Claw', 11, 18777), 18777);
-
-  const db = openDb(':memory:');
-  db.addSightings([
-    shop('Ilbi Throwing Stars', 'a', 650000, { qty: 800 }),
-    shop('Ilbi Throwing Stars', 'b', 600000, { qty: 4 }),
-    shop('Arrows for Bows', 'c', 5000, { qty: 1000 }),
-  ]);
-  const { seen } = db.state();
-  assert.deepEqual(seen['Ilbi Throwing Stars'].map(v => v.u).sort((a, b) => a - b), [600000, 650000]);
-  assert.equal(seen['Arrows for Bows'][0].u, 5);
-});
-
-test('keeps where a listing was, and a later scan without it does not erase it', () => {
-  const db = openDb(':memory:');
-  db.addSightings([shop('Red Potion', 'a', 50, { channel: 4, map: 'Free Market', room: 1 })]);
-  db.addSightings([shop('Red Potion', 'a', 50)]);
-  const [row] = db.history('Red Potion');
-  assert.deepEqual([row.channel, row.map, row.room], [4, 'Free Market', 1]);
-  db.addSightings([shop('Red Potion', 'a', 50, { channel: 7, map: 'Kerning City' })]);
-  const [moved] = db.history('Red Potion');
-  assert.deepEqual([moved.channel, moved.map], [7, 'Kerning City']);
-});
-
-test('a database from before shops had a location opens and keeps its data', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scanner-'));
-  const file = path.join(dir, 'old.db');
-  const old = new DatabaseSync(file);
-  old.exec(`
-    CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, confirmed INTEGER NOT NULL DEFAULT 0, fm INTEGER, npc_pays INTEGER, npc_sells INTEGER, added INTEGER NOT NULL);
-    CREATE TABLE aliases (raw TEXT PRIMARY KEY, item_id INTEGER NOT NULL REFERENCES items(id));
-    CREATE TABLE sightings (id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL REFERENCES items(id), seller TEXT NOT NULL, qty INTEGER NOT NULL, price INTEGER NOT NULL, sold INTEGER NOT NULL, copies INTEGER NOT NULL DEFAULT 1, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, UNIQUE (item_id, seller, qty, price, sold));
-    INSERT INTO items (id, name, confirmed, added) VALUES (1, 'Red Potion', 1, 1);
-    INSERT INTO sightings (item_id, seller, qty, price, sold, first_seen, last_seen) VALUES (1, 'a', 1, 50, 0, 1, 1);
-  `);
-  old.close();
-  const db = openDb(file);
-  assert.equal(db.history('Red Potion').length, 1);
-  db.addSightings([shop('Red Potion', 'a', 50, { channel: 4, room: 2 })]);
-  assert.deepEqual([db.history('Red Potion').length, db.history('Red Potion')[0].channel], [1, 4]);
-  db.close();
-  const again = openDb(file); // opening twice must not fail
-  assert.equal(again.history('Red Potion')[0].room, 2);
-  again.close();
-  fs.rmSync(dir, { recursive: true });
-});
-
-test('NPC prices are not taken from the screen', () => {
-  const db = openDb(':memory:');
-  assert.throws(() => db.addSightings([{ list: 'npcBuys', name: 'War Bow', qty: 1, price: 1250 }]));
-  assert.equal(db.state().items.length, 0);
 });
 
 test('NPC prices come from the item data, and only for items an NPC buys', () => {
@@ -623,24 +553,8 @@ test('says how worked an item is', () => {
   assert.equal(gearState({ slots: 5 }, null), '5 slots left');
 });
 
-test('a damaged stats value is dropped', () => {
-  const db = openDb(':memory:');
-  db.addSightings([shop('Crossbow', 'a', 5, { stats: 'not json' })]);
-  assert.equal(db.state().seen.Crossbow[0].stats, null);
-});
-
 test('says how long ago', () => {
   assert.deepEqual([agoText(1000), agoText(12 * 6e4), agoText(2 * 36e5)], ['just now', '12 min ago', '2 h ago']);
-});
-
-test('stats that cannot be the item\'s are not saved, and the listing still is', () => {
-  const db = openDb(':memory:');
-  // a Heckler's stats on a Blue Sauna Robe (Nov 9): no W.Def, HP or MP
-  db.addSightings([shop('Blue Sauna Robe', 'jackzhou', 55555, { stats: { attack: 63, slots: 7 } })]);
-  db.addSightings([shop('Crossbow', 'a', 100, { stats: { attack: 30, slots: 8 } })]);
-  const seen = db.state().seen;
-  assert.equal(seen['Blue Sauna Robe'][0].stats, null);
-  assert.equal(seen.Crossbow[0].stats, null, 'more slots left than a Crossbow has');
 });
 
 test('read stats must fit the item: its slots and its main lines', () => {
@@ -660,40 +574,6 @@ test('a stat a scroll added, like Jump on shoes, still fits', () => {
   const stats = parseGearStats(read, facts.lines('Blue Moon Shoes'));
   assert.equal(facts.fits('Blue Moon Shoes', stats), true);
   assert.equal(gearState(stats, facts.slots('Blue Moon Shoes'), facts.base('Blue Moon Shoes')), '4 of 5 slots left, +2 jump');
-});
-
-test('gear stats survive seeing the listing again', () => {
-  const stats = { slots: 5, attack: 30, str: 4 };
-  const a = openDb(':memory:');
-  a.addSightings([shop('Crossbow', 'a', 100), { ...shop('Crossbow', 'a', 100), stats }]);
-  a.addSightings([shop('Crossbow', 'a', 100)]);
-  assert.deepEqual(a.state().seen.Crossbow[0].stats, stats);
-});
-
-test("only real items are saved, under the item list's spelling, and the rest of a scan still is", () => {
-  const db = openDb(':memory:');
-  assert.deepEqual(db.addSightings([shop('blue bamboo hat', 'a', 100), shop('Blue Bamhoo Hat', 'a', 200)]), { saved: 1, skipped: 1 });
-  assert.deepEqual(db.state().items.map(i => [i.name, i.listings]), [['Blue Bamboo Hat', 1]]);
-});
-
-test("a database with a real item in another spelling joins the list's spelling when opened", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maple-spelling-')), file = path.join(dir, 'old.db');
-  const old = openDb(file);
-  old.close();
-  const raw = new DatabaseSync(file);
-  raw.exec(`INSERT INTO items (id, name, confirmed, added) VALUES (1, 'sewing Machine', 0, 1), (2, 'Sewing Machine', 1, 1);
-    INSERT INTO sightings (item_id, seller, qty, price, sold, first_seen, last_seen) VALUES (1, 'a', 1, 50, 0, 1, 1), (2, 'b', 1, 60, 0, 1, 1);`);
-  raw.close();
-  const db = openDb(file);
-  assert.deepEqual(db.state().items.map(i => [i.name, i.listings]), [['Sewing Machine', 2]]);
-  db.close();
-  fs.rmSync(dir, { recursive: true, force: true });
-});
-
-test('rejects bad rows and saves none of them', () => {
-  const db = openDb(':memory:');
-  assert.throws(() => db.addSightings([shop('Red Potion', 'a', 50), shop('Blue Potion', 'a', -5)]));
-  assert.equal(db.state().items.length, 0);
 });
 
 const visit = (titles, sellers) => {
@@ -725,32 +605,6 @@ test('a hidden seller stays the same shop while the title agrees', () => {
 test('a different title or a different seller is a different shop', () => {
   assert.ok(!isSameShop(visit(['cheap cheap'], ['Zzoki']), { title: 'BUY ME OUT', seller: null }));
   assert.ok(!isSameShop(visit(['NX'], ['Bistu']), { title: 'NX', seller: 'Fennekin' }));
-});
-
-test('a listing keeps its shop title when seen again', () => {
-  const a = openDb(':memory:');
-  a.addSightings([{ ...shop('Battle Crossbow', 'iNext', 900), shop: 'The Good Stuff' }]);
-  a.addSightings([shop('Battle Crossbow', 'iNext', 900)]); // seen again with the title unread
-  assert.equal(a.history('Battle Crossbow')[0].shop, 'The Good Stuff');
-  const c = openDb(':memory:');
-  c.addSightings([{ ...shop('Red Potion', '', 50), shop: 'x'.repeat(81) }]);
-  assert.equal(c.history('Red Potion')[0].shop, null);
-});
-
-test('a database from before shop titles opens and keeps its listings', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maple-title-')), file = path.join(dir, 'old.db');
-  const old = new DatabaseSync(file);
-  old.exec(`CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, confirmed INTEGER NOT NULL DEFAULT 0, fm INTEGER, npc_pays INTEGER, npc_sells INTEGER, added INTEGER NOT NULL);
-    CREATE TABLE sightings (id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, seller TEXT NOT NULL, qty INTEGER NOT NULL, price INTEGER NOT NULL, sold INTEGER NOT NULL, copies INTEGER NOT NULL DEFAULT 1, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, channel INTEGER, map TEXT, room INTEGER, UNIQUE (item_id, seller, qty, price, sold));
-    INSERT INTO items (id, name, added) VALUES (1, 'Red Potion', 1);
-    INSERT INTO sightings (item_id, seller, qty, price, sold, first_seen, last_seen) VALUES (1, 'a', 1, 50, 0, 1, 1);`);
-  old.close();
-  const db = openDb(file);
-  assert.equal(db.history('Red Potion')[0].shop, null);
-  db.addSightings([{ ...shop('Red Potion', 'a', 50), shop: 'NX' }]);
-  assert.equal(db.history('Red Potion')[0].shop, 'NX');
-  db.close();
-  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test('icons: a name gives the id its icon is saved under, and one with none keeps an empty slot', () => {

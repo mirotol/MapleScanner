@@ -358,12 +358,17 @@ function renderCard(fresh = false) {
   $('card').querySelector('.card-body').scrollTop = scroll;
 }
 
+// Every item ever listed comes from the shared price database (`full`), with the recent listings
+// the local server keeps in memory. Offline, it shows what it had and says so.
 async function reload() {
-  state = await api('/api/state');
+  state = await api('/api/state?full');
   rows = state.items.filter(i => i.listings > 0).map(summarise);
   if (card && !itemOf(card.name)) closeCard();
   if (card) { card.history = await api(`/api/history?name=${encodeURIComponent(card.name)}`); renderCard(); }
   renderList();
+  const { status } = state;
+  if (!status.connected) say('No price server is set, so there are no prices.', true);
+  else if (status.online === false) say("Offline: can't reach the price server, so these are the prices from before the connection dropped.", true);
 }
 
 function closeCard() {

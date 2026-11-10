@@ -4,6 +4,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 const { start, readSettings, saveSettings, TEXT_SIZES } = require('../serve.js');
+const { PRODUCTION_URL } = require('../cloud.js');
 
 // The app was called "Maple Scanner" until Nov 10, and its data folder keeps that name so every
 // existing price database is still found. productName alone would decide it otherwise.
@@ -131,7 +132,8 @@ async function createMainWindow() {
   settingsFile = path.join(data, 'settings.json'); // where serve.js keeps it, next to the database
   hotkey = readSettings(settingsFile).cardHotkey;
   hotkeyWorks = useHotkey(hotkey);
-  const { port } = await start({ dbFile: path.join(data, 'prices.db'), debugDir: path.join(data, 'debug') });
+  // Prices come from the shared database. An old prices.db in this folder is left alone and unused.
+  const { port } = await start({ dataDir: data, debugDir: path.join(data, 'debug'), cloudUrl: process.env.CLOUD_URL || PRODUCTION_URL });
   const origin = `http://127.0.0.1:${port}`;
 
   main = new BrowserWindow({

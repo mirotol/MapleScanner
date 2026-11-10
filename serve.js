@@ -1,10 +1,10 @@
-// Local server for the pages and the price database.
-// In a browser: node serve.js  ->  http://localhost:8123
-// The Windows app starts the same server itself, see desktop/main.js.
+// Local server for the pages, icons and settings, and the app's link to the shared price database
+// (cloud.js). In a browser: node serve.js  ->  http://localhost:8123
+// The Windows app starts the same server itself, see desktop/main.js. No listing data is kept here.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { openDb, BadInput } = require('./db.js');
+const { createCloud, installKey, BadInput, PRODUCTION_URL } = require('./cloud.js');
 
 const root = __dirname;
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.csv': 'text/csv', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.wasm': 'application/wasm', '.woff2': 'font/woff2' };
@@ -16,12 +16,14 @@ const sendJson = (res, status, value) => {
   res.end(JSON.stringify(value));
 };
 
-function answer(res, work) {
+async function answer(res, work) {
   try {
-    sendJson(res, 200, work());
+    sendJson(res, 200, await work());
   } catch (err) {
-    if (!(err instanceof BadInput)) console.error(err);
-    sendJson(res, err instanceof BadInput ? 400 : 500, { error: err instanceof BadInput ? err.message : 'The database could not do that.' });
+    if (err instanceof BadInput) return sendJson(res, 400, { error: err.message });
+    if (err.status) return sendJson(res, err.status, { error: err.message }); // from the price server
+    console.error(err);
+    sendJson(res, 502, { error: "Can't reach the price server." });
   }
 }
 
@@ -82,7 +84,7 @@ function sendRecorded(url, res, debugDir) {
 
 // Item icons, from OSMS Data Explorer. They're (c) Nexon and not covered by its licence, so
 // they aren't bundled: each one is downloaded the first time a page shows it and kept in a
-// folder next to the database, which then works offline and costs OSMS one download per
+// folder next to the settings, which then works offline and costs OSMS one download per
 // item. Only ids in osms-items.json are fetched, and the saved icons are dropped when the
 // game data changes, in case an icon did. A failed download is no icon, tried again later.
 const ICON_BASE = 'https://osmsdataexplorer.com/data/current/images/items/';
@@ -143,7 +145,7 @@ function sendIcon(icons, id, res) {
   }, err => { console.error(err); res.writeHead(500); res.end(); });
 }
 
-// The player's settings, in a file next to the database. Not browser storage, because the app's
+// The player's settings, in a file in the app's data folder. Not browser storage, because the app's
 // page gets a new port on each start, and with it storage of its own.
 // cardHotkey is an Electron accelerator, or '' for none. The app's main process saves it, because
 // it has to check Windows will give it the key first (desktop/main.js).
@@ -172,18 +174,22 @@ function saveSettings(file, changes) {
   return settings;
 }
 
-function start({ port = 0, dbFile, debugDir, download }) {
-  const settingsFile = path.join(path.dirname(dbFile), 'settings.json');
+// dataDir holds the settings, the install key and the icons. cloudUrl is the shared price
+// database's Worker, and key this install's anonymous upload key.
+function start({ port = 0, dataDir, debugDir, download, cloudUrl, key, fetch: cloudFetch }) {
+  const settingsFile = path.join(dataDir, 'settings.json');
   const items = JSON.parse(fs.readFileSync(path.join(root, 'osms-items.json'), 'utf8'));
-  const icons = iconStore(path.join(path.dirname(dbFile), 'icons'), items, download);
-  const db = openDb(dbFile, path.join(root, 'items.csv'));
+  const icons = iconStore(path.join(dataDir, 'icons'), items, download);
+  const cloud = createCloud({ url: cloudUrl, key: key ?? installKey(dataDir), itemList: items, ...(cloudFetch ? { fetch: cloudFetch } : {}) });
+  cloud.start();
   const reads = {
-    '/api/state': () => db.state(),
-    '/api/history': query => db.history(query.get('name')),
+    '/api/state': query => cloud.state({ full: query.has('full') }),
+    '/api/history': query => cloud.history(query.get('name')),
+    '/api/status': () => cloud.status(),
     '/api/settings': () => readSettings(settingsFile),
   };
   const writes = {
-    '/api/sightings': body => db.addSightings(body.rows),
+    '/api/sightings': body => cloud.add(body.rows),
     '/api/settings': body => saveSettings(settingsFile, body),
   };
 
@@ -220,16 +226,20 @@ function start({ port = 0, dbFile, debugDir, download }) {
 
   return new Promise((resolve, reject) => {
     server.on('error', reject);
-    server.listen(port, '127.0.0.1', () => resolve({ port: server.address().port }));
+    server.listen(port, '127.0.0.1', () => resolve({ port: server.address().port, cloud, close: () => { cloud.stop(); server.close(); } }));
   });
 }
 
+// DATA is the folder for settings, the install key and icons. CLOUD_URL is the price server, such as
+// http://127.0.0.1:8787 for the local Worker (npm run cloud:dev).
 if (require.main === module) {
+  const cloudUrl = process.env.CLOUD_URL || PRODUCTION_URL;
   start({
     port: process.env.PORT || 8123,
-    dbFile: process.env.DB || path.join(root, 'data', 'prices.db'),
+    dataDir: process.env.DATA || path.join(root, 'data'),
     debugDir: path.join(root, 'debug'),
-  }).then(({ port }) => console.log(`MapleScanner: http://localhost:${port}`));
+    cloudUrl,
+  }).then(({ port }) => console.log(`MapleScanner: http://localhost:${port}, prices from ${cloudUrl || 'nowhere: set CLOUD_URL'}`));
 }
 
 module.exports = { start, readSettings, saveSettings, SETTINGS, TEXT_SIZES, iconStore };
