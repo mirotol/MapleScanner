@@ -134,7 +134,7 @@ async function createMainWindow() {
   hotkey = readSettings(settingsFile).cardHotkey;
   hotkeyWorks = useHotkey(hotkey);
   // Prices come from the shared database. An old prices.db in this folder is left alone and unused.
-  const { port } = await start({ dataDir: data, debugDir: path.join(data, 'debug'), cloudUrl: process.env.CLOUD_URL || PRODUCTION_URL });
+  const { port } = await start({ dataDir: data, cloudUrl: process.env.CLOUD_URL || PRODUCTION_URL });
   const origin = `http://127.0.0.1:${port}`;
 
   main = new BrowserWindow({

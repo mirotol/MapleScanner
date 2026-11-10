@@ -47,14 +47,7 @@
   .controls .hint { color: var(--mist); font-size: 13px; }
   .steps { margin: 0 0 20px; padding: 0 0 0 20px; color: var(--mist); }
   .steps li { margin-bottom: 4px; }
-  #drop { border: 2px dashed var(--ridge); border-radius: 8px; padding: 16px; color: var(--mist); text-align: center; font-size: 13px; margin-bottom: 16px; }
-  #drop.over { border-color: var(--sky); }
-  details { color: var(--mist); font-size: 13px; margin-bottom: 8px; max-width: 64ch; }
-  summary { color: var(--cloud); cursor: pointer; }
-  details p { margin-top: 6px; }
-  details button { margin-top: 8px; }
   #holder { min-width: 0; }
-  footer { flex: none; padding: 10px 24px 14px; color: var(--mist); font-size: 12px; border-top: 1px solid var(--dusk); }
 
   #pickerList { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; max-height: 60vh; overflow-y: auto; }
   #pickerList button { display: flex; flex-direction: column; gap: 5px; padding: 6px; min-width: 0; text-align: left; background: var(--night); box-shadow: none; border-radius: 6px; }
@@ -88,22 +81,6 @@
         <li>Walk into a shop and scroll its list.</li>
         <li>Hover an item to see what it's worth.</li>
       </ol>
-      <div id="drop">Or paste a screenshot with Ctrl+V, or drop one here. Screenshots of the same shop add up.</div>
-      <details>
-        <summary>How prices work</summary>
-        <p>Every shop you scan is shared with every MapleScanner player, and their scans give you prices. Only what is on screen is sent: the listings read and an anonymous install key, nothing else. Each seller gets one vote, so nobody can move a price by listing more. The usual price is what items sold for, once 3 sellers have sold one over at least 2 days. Until then it's the low end of what sellers ask. It uses the last 3 days when 3 sellers are known, otherwise 7 or 14, and shows a price range until 3 sellers have listed an item. Gear is only compared with the same stats, so hover it first. NPC prices come from OSMS Data Explorer.</p>
-        <p>On each row the white tick is what the item sold for and the dot is this listing. A dotted line means few sellers, and no line means it can't be compared yet.</p>
-      </details>
-      <details>
-        <summary>Something not working?</summary>
-        <p>If no shop is ever found, turn off HDR in Windows display settings.</p>
-        <p>Saving a test frame stores what the scanner sees, so a problem can be looked at.</p>
-        <button id="saveFrame">Save a test frame</button>
-        <p id="frameStatus"></p>
-        <p>Recording saves every frame for 30 seconds, with what was read from each, so a problem that comes and goes can be looked at.</p>
-        <button id="recordFrames">Record 30 seconds of frames</button>
-        <p id="recordStatus"></p>
-      </details>
     </div>
     <div id="holder">
       <div id="panel" class="stall">
@@ -124,7 +101,6 @@
       </div>
     </div>
   </main>
-  <footer>Item data: Data from OSMS Data Explorer (https://osmsdataexplorer.com), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), reduced to item names, NPC sell prices, scroll success rates, upgrade slots and main stat lines. Item icons are downloaded from it once each and kept on this PC. Game content is © Nexon. Unofficial, not affiliated with Nexon.</footer>
 </div>
 <div id="settingsTab" hidden>
   <section class="settings">

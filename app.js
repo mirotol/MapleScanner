@@ -11,7 +11,7 @@ const captureFps = () => (settings.channelWatch ? CAPTURE_FPS : SLOW_CAPTURE_FPS
 const READS_TO_SAVE = 2; // a row must read the same on two scans, so a passing cursor isn't saved
 const SALES_FEE = 0.03; // the game says so in every player shop
 const SWITCH_WAIT_MS = 8000; // how long after the window closes a channel change can start loading
-const FRAME_DELAY_MS = 10000, FROZEN_MS = 5000;
+const FROZEN_MS = 5000;
 const RECONNECT_MS = 30000, GIVE_UP_MS = 15000; // a frozen picture is reconnected, and only mentioned if that doesn't help
 
 const reader = new ShopReader();
@@ -86,9 +86,10 @@ function comparable(name, stats) {
   return stats ? (seen[name] ?? []).filter(v => v.stats && sameStats(v.stats, stats)) : [];
 }
 
-// Only a row read as a real item is saved. The server checks again.
+// Only a row read as a real item is saved, and only from the live game window: a picture can be
+// edited, so a screenshot read (scanBlob) is never shared. The server checks again.
 function remember(row, { seller, title }) {
-  if (row.cut || !row.real || !row.price || row.name.length > MAX_NAME) return;
+  if (!stream || row.cut || !row.real || !row.price || row.name.length > MAX_NAME) return;
   pending.push({
     list: row.list, name: row.name, raw: row.raw, seller: seller ?? '', qty: row.qty, price: row.price,
     sold: !!row.sold, copies: row.copies, channel, map: place?.map, room: place?.room, shop: title, stats: row.stats ?? null,
@@ -361,7 +362,7 @@ function itemCard(tip, label) {
 
 function idleHtml() {
   const now = Date.now(), deals = bestDeals(now);
-  const hint = `<p class="idle">${stream ? 'Walk into a shop to check it.' : 'Press Start scanning, or paste a screenshot.'}</p>`;
+  const hint = `<p class="idle">${stream ? 'Walk into a shop to check it.' : 'Press Start scanning.'}</p>`;
   if (!deals.length) return hint;
   const line = d => [d.where || 'place not known', d.seller, agoText(now - d.t)].filter(Boolean).join(', ');
   return `<div class="shop-head"><div class="who"><h3 class="dim">Best deals this session</h3></div></div>
@@ -480,7 +481,6 @@ function startWatcher(track) {
     const before = channel;
     channels.see(data, Date.now(), place);
     channel = channels.channel;
-    if (recording) recording.watch.push({ at: Math.round(performance.now()), frameTime: data.time, channelWindow: data.channelWindow, dark: data.dark, channel, readMs: data.readMs, findMs: data.findMs });
     if (channel !== before) render();
   };
 }
@@ -517,7 +517,7 @@ async function tick() {
   const height = latest ? latest.displayHeight : video.videoHeight;
   const started = performance.now();
   if (busy || !stream || !width || started < nextScan) return;
-  nextScan = started + ((channels.watching && !watchLive) || recording ? FAST_SCAN_MS : SCAN_MS);
+  nextScan = started + (channels.watching && !watchLive ? FAST_SCAN_MS : SCAN_MS);
   busy = true;
   try {
     if (frame.width !== width || frame.height !== height) { frame.width = width; frame.height = height; }
@@ -527,10 +527,8 @@ async function tick() {
     if (wasFrozen && frozen <= FROZEN_MS) channels.lost(); // it may have come back on another channel
     wasFrozen = frozen > FROZEN_MS;
     if (wasFrozen) reconnect().catch(console.error);
-    const before = channel;
-    const res = await scanCanvas(frame, takenAt);
+    await scanCanvas(frame, takenAt);
     channel = channels.channel;
-    if (recording) record(res, { frozen, before, started });
     message = 'Scanning';
     problem = frozen > (window.desktop ? GIVE_UP_MS : FROZEN_MS) ? trouble('Picture frozen: restart scanning', `The game picture has been frozen for ${Math.round(frozen / 1000)} seconds. Stop scanning, then start again.`) : null;
   } catch (err) {
@@ -557,7 +555,6 @@ function stopCapture() {
   latest?.close(); latest = null;
   lastPicture = null;
   wasFrozen = false;
-  if (recording) recording.until = 0; // the next scan would save it, but there won't be one
   $('share').textContent = 'Start scanning';
   message = 'Not scanning';
   problem = null;
@@ -637,68 +634,6 @@ $('share').onclick = async () => {
   problem = null;
   render();
 };
-
-// ---------- recording ----------
-// Every scanned frame for a while, and what was read from each, for problems that come and go,
-// like a channel change done fast with the keyboard. Saved where test frames go.
-const RECORD_MS = 30000;
-let recording = null;
-
-$('recordFrames').onclick = () => {
-  const status = $('recordStatus');
-  if (!stream) { status.textContent = 'Press Start scanning first.'; return; }
-  if (recording) return;
-  recording = { run: String(Date.now()), n: 0, until: performance.now() + RECORD_MS, log: [], watch: [], uploads: [] };
-  $('recordFrames').disabled = true;
-  status.textContent = `Recording for ${RECORD_MS / 1000} seconds. Switch to the game and do what goes wrong.`;
-};
-
-const sendRecorded = (run, name, body) => fetch(`/save-recorded?run=${run}&name=${name}`, { method: 'POST', body })
-  .then(res => { if (!res.ok) throw new Error(`the server answered ${res.status}`); return res.json(); });
-
-function record(res, { frozen, before, started }) {
-  const r = recording, n = ++r.n, name = `frame-${String(n).padStart(4, '0')}.webp`;
-  // the frame's own time shows a frame that was scanned twice, or one the capture skipped
-  r.log.push({
-    n, name, at: Math.round(started), frameTime: latest?.timestamp ?? null, size: [frame.width, frame.height],
-    frozenMs: Math.round(frozen), shop: res?.kind ?? null, channelWindow: res?.channelWindow ?? null, dark: !!res?.dark,
-    place: res?.place ?? null, channelBefore: before, channel, watching: channels.watching, scanMs: Math.round(performance.now() - started),
-    tooltip: res?.tooltip ? { read: res.tooltip.name, shown: tooltipCard(tooltip), ...res.tooltip.where } : null,
-  });
-  r.uploads.push(new Promise(done => frame.toBlob(done, 'image/webp', 0.95)).then(blob => sendRecorded(r.run, name, blob)));
-  if (performance.now() < r.until) return;
-  recording = null;
-  const status = $('recordStatus');
-  status.textContent = 'Saving the recording…';
-  Promise.all(r.uploads)
-    .then(() => sendRecorded(r.run, 'log.json', JSON.stringify({ run: r.run, scanMs: SCAN_MS, captureFps: captureFps(), frames: r.log, watch: r.watch })))
-    .then(({ dir }) => { status.textContent = `Saved ${r.n} frames to ${dir}`; })
-    .catch(err => { status.textContent = `Couldn't save the recording: ${err.message}.`; })
-    .finally(() => { $('recordFrames').disabled = false; });
-}
-
-// ---------- test frames ----------
-// Waits a few seconds so a shop can be opened in the game first.
-$('saveFrame').onclick = () => {
-  const button = $('saveFrame'), status = $('frameStatus');
-  if (!stream) { status.textContent = 'Press Start scanning first.'; return; }
-  button.disabled = true;
-  status.textContent = `Saving in ${FRAME_DELAY_MS / 1000} seconds. Switch to the game and open a shop.`;
-  setTimeout(async () => {
-    try {
-      if (!stream) throw new Error('sharing stopped');
-      const blob = await new Promise(done => frame.toBlob(done, 'image/png'));
-      const res = await fetch('/save-frame', { method: 'POST', body: blob });
-      if (!res.ok) throw new Error(`the server answered ${res.status}`);
-      status.textContent = `Saved ${(await res.json()).file}`;
-    } catch (err) {
-      status.textContent = `Couldn't save the frame: ${err.message}.`;
-    }
-    button.disabled = false;
-  }, FRAME_DELAY_MS);
-};
-
-if (!window.desktop && !window.documentPictureInPicture) $('browserNote').textContent = 'This browser is not supported yet. Use Edge or Chrome.';
 
 // ---------- pop-out ----------
 const POPPED_WIDTH = 340, POPPED_HEIGHT = 720;
@@ -780,39 +715,22 @@ $('panelShrink').onclick = () => { panel.classList.toggle('small'); render(); };
 $('panelClose').onclick = () => popped?.close();
 
 // ---------- screenshots ----------
+// For checking the reading code on a saved screenshot from the developer tools (window.app.scanBlob).
+// It shows on the stall card like a live read, but nothing read from a picture is ever saved or
+// shared, because a picture can be edited (see remember). Players have no way to give it one.
 async function scanBlob(blob) {
   const bmp = await createImageBitmap(blob);
   const c = document.createElement('canvas');
   c.width = bmp.width; c.height = bmp.height;
   c.getContext('2d', { willReadFrequently: true }).drawImage(bmp, 0, 0);
-  message = 'Reading screenshot';
-  problem = null;
-  render();
   await scanCanvas(c);
   if (session) { // a screenshot only gets one read
     session.seller = mostRead(session.sellers);
     session.title = mostRead(session.titles);
     for (const l of session.lines) settleStats(l, 1);
-    session.rows.forEach(saveRow);
-    saveSightings();
   }
-  const found = session && Date.now() - session.seenAt < 1000;
-  message = stream ? 'Scanning' : 'Not scanning';
-  if (!found) problem = trouble('Nothing found in that image', 'No shop or tooltip found in that image.');
   render();
 }
-document.addEventListener('paste', e => {
-  const f = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
-  if (f) { e.preventDefault(); scanBlob(f.getAsFile()); }
-});
-const drop = $('drop');
-drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
-drop.addEventListener('dragleave', () => drop.classList.remove('over'));
-drop.addEventListener('drop', e => {
-  e.preventDefault(); drop.classList.remove('over');
-  const f = [...e.dataTransfer.files].find(x => x.type.startsWith('image/'));
-  if (f) scanBlob(f);
-});
 
 // ---------- tabs ----------
 // Prices sits in a frame, so scanning carries on while it's open.

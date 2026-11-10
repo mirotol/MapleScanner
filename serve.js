@@ -8,7 +8,7 @@ const { createCloud, installKey, BadInput, PRODUCTION_URL } = require('./cloud.j
 
 const root = __dirname;
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.csv': 'text/csv', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.wasm': 'application/wasm', '.woff2': 'font/woff2' };
-const MAX_BODY = 40 * 1024 * 1024;
+const MAX_BODY = 2 * 1024 * 1024;
 const PNG_START = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
 const sendJson = (res, status, value) => {
@@ -35,51 +35,6 @@ function readBody(req, res, done) {
     if (size > MAX_BODY) { res.writeHead(413); res.end(); req.destroy(); } else chunks.push(chunk);
   });
   req.on('end', () => done(Buffer.concat(chunks)));
-}
-
-// Stores one captured frame so detection problems can be looked at.
-function saveFrame(body, res, debugDir) {
-  if (!body.subarray(0, 4).equals(PNG_START)) { res.writeHead(400); return res.end(); }
-  const file = path.join(debugDir, `frame-${new Date().toISOString().replace(/[:.]/g, '-')}.png`);
-  fs.mkdirSync(debugDir, { recursive: true });
-  fs.writeFile(file, body, err => {
-    if (err) { res.writeHead(500); return res.end(); }
-    sendJson(res, 200, { file });
-  });
-}
-
-// A recording: every scanned frame of a few seconds, and a log of what was read from each.
-const RUN = /^\d{10,16}$/, RECORDED = /^(frame-\d{4}\.webp|log\.json)$/;
-const recordingDir = (debugDir, run) => path.join(debugDir, `recording-${run}`);
-
-function saveRecorded(url, body, res, debugDir) {
-  const run = url.searchParams.get('run'), name = url.searchParams.get('name');
-  if (!RUN.test(run ?? '') || !RECORDED.test(name ?? '')) { res.writeHead(400); return res.end(); }
-  const dir = recordingDir(debugDir, run);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFile(path.join(dir, name), body, err => {
-    if (err) { res.writeHead(500); return res.end(); }
-    sendJson(res, 200, { dir });
-  });
-}
-
-// Read back, so a recording can be looked at through this server, as the app's data folder
-// isn't always reachable from outside.
-function sendRecorded(url, res, debugDir) {
-  const run = url.searchParams.get('run'), name = url.searchParams.get('name');
-  if (!run) {
-    const runs = fs.existsSync(debugDir) ? fs.readdirSync(debugDir).filter(d => /^recording-\d+$/.test(d)).map(d => d.slice(10)) : [];
-    return sendJson(res, 200, { runs });
-  }
-  if (!RUN.test(run)) { res.writeHead(400); return res.end(); }
-  const dir = recordingDir(debugDir, run);
-  if (!name) return sendJson(res, 200, { dir, files: fs.existsSync(dir) ? fs.readdirSync(dir) : [] });
-  if (!RECORDED.test(name)) { res.writeHead(400); return res.end(); }
-  fs.readFile(path.join(dir, name), (err, data) => {
-    if (err) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { 'Content-Type': name.endsWith('.json') ? 'application/json' : 'image/webp', 'Cache-Control': 'no-store' });
-    res.end(data);
-  });
 }
 
 // Item icons, from OSMS Data Explorer. They're (c) Nexon and not covered by its licence, so
@@ -177,7 +132,7 @@ function saveSettings(file, changes) {
 
 // dataDir holds the settings, the install key and the icons. cloudUrl is the shared price
 // database's Worker, and key this install's anonymous upload key.
-function start({ port = 0, dataDir, debugDir, download, cloudUrl, key, fetch: cloudFetch }) {
+function start({ port = 0, dataDir, download, cloudUrl, key, fetch: cloudFetch }) {
   const settingsFile = path.join(dataDir, 'settings.json');
   const items = JSON.parse(fs.readFileSync(path.join(root, 'osms-items.json'), 'utf8'));
   const icons = iconStore(path.join(dataDir, 'icons'), items, download);
@@ -201,8 +156,6 @@ function start({ port = 0, dataDir, debugDir, download, cloudUrl, key, fetch: cl
       // Only this app's own pages may change anything.
       const own = server.address().port;
       if (![`http://localhost:${own}`, `http://127.0.0.1:${own}`].includes(req.headers.origin)) { res.writeHead(403); return res.end(); }
-      if (url.pathname === '/save-frame') return readBody(req, res, body => saveFrame(body, res, debugDir));
-      if (url.pathname === '/save-recorded') return readBody(req, res, body => saveRecorded(url, body, res, debugDir));
       const write = writes[url.pathname];
       if (!write) { res.writeHead(404); return res.end(); }
       return readBody(req, res, body => answer(res, () => {
@@ -212,7 +165,6 @@ function start({ port = 0, dataDir, debugDir, download, cloudUrl, key, fetch: cl
       }));
     }
     if (reads[url.pathname]) return answer(res, () => reads[url.pathname](url.searchParams));
-    if (url.pathname === '/api/recording') return sendRecorded(url, res, debugDir);
     const icon = ICON_PATH.exec(url.pathname);
     if (icon) return sendIcon(icons, Number(icon[1]), res);
 
@@ -239,7 +191,6 @@ if (require.main === module) {
   start({
     port: process.env.PORT || 8123,
     dataDir: process.env.DATA || path.join(root, 'data'),
-    debugDir: path.join(root, 'debug'),
     cloudUrl,
   }).then(({ port }) => console.log(`MapleScanner: http://localhost:${port}, prices from ${cloudUrl || 'nowhere: set CLOUD_URL'}`));
 }
