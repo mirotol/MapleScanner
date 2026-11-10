@@ -28,6 +28,20 @@ jobs:
           fi
       - run: npm ci
       - run: npm test
-      - run: npm run release
+      - run: npm run dist
+      # Uploaded with gh rather than electron-builder's publisher: on v0.1.0 that one started two
+      # uploads at once, created the release twice and exited with success after only the
+      # blockmap was up, leaving no installer and no latest.yml. gh fails the job if any file fails.
+      - name: Upload to a draft release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          files=(dist/MapleScanner-Setup-*.exe dist/MapleScanner-Setup-*.exe.blockmap dist/latest.yml)
+          ls -l "${files[@]}"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" --draft --verify-tag --title "${GITHUB_REF_NAME#v}"
+          fi
+          gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name'

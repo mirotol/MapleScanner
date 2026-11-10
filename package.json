@@ -12,8 +12,7 @@
     "serve": "node serve.js",
     "test": "node --test test/pricing.test.js test/market.test.js test/scanner.test.js",
     "items": "node tools/update-items.js",
-    "dist": "electron-builder --win nsis --publish never",
-    "release": "electron-builder --win nsis --publish always"
+    "dist": "electron-builder --win nsis --publish never"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",
