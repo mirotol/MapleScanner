@@ -3,7 +3,7 @@
 // /api/state and /api/history. Here those are answered in the browser, straight from the price
 // server's public reads, with the same code that judges prices in the app (pricing.js, market.js).
 // The website only reads: it has no install key and uploads nothing.
-globalThis.PUBLIC_SITE = true; // read by pricing.js and prices.js
+globalThis.PUBLIC_SITE = true; // read by prices.js
 
 (() => {
   // A page opened from this computer is being worked on, so it asks the local Worker

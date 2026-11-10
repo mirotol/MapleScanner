@@ -1,16 +1,23 @@
-// The website, maplescanner.app: plain files from site/dist, with no Worker code of its own.
+// The website, maplescanner.app: plain files from site/dist, and a little code for item icons.
 //   npm run site:dev       build, then serve on http://127.0.0.1:8790 (prices from the local Worker)
 //   npm run site:deploy    build, then deploy. Needs `npx wrangler login`, like cloud:deploy
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "maplescanner-site",
+  "main": "worker.js",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // /download serves download.html, and an unknown address gets 404.html
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    // Only icons run worker.js. Every other address is answered from the files without it.
+    "run_worker_first": ["/icon/*"]
   },
+  // Item icons, each downloaded from OSMS once (icons.js).
+  // Created Nov 10 with `wrangler r2 bucket create maplescanner-icons`
+  "r2_buckets": [{ "binding": "ICONS", "bucket_name": "maplescanner-icons" }],
   // Only on the app's own domain, like the price server: the account's workers.dev address is
   // named after its email.
   "routes": [{ "pattern": "maplescanner.app", "custom_domain": true }],

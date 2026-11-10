@@ -36,7 +36,7 @@ The reading code was tuned on real game screenshots. Those stay on the author's 
 
 ## Credits
 
-Item data from [OSMS Data Explorer](https://osmsdataexplorer.com), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It's reduced to item names, NPC prices, scroll success rates, upgrade slots, main stat lines, plain gear stats, which gear has no description, which items recharge, and item ids for icons. Icons are downloaded from it once each and kept on your PC. They aren't part of this repository.
+Item data from [OSMS Data Explorer](https://osmsdataexplorer.com), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It's reduced to item names, NPC prices, scroll success rates, upgrade slots, main stat lines, plain gear stats, which gear has no description, which items recharge, and item ids for icons. Icons are downloaded from it once each: the app keeps them on your PC, and the website keeps one copy on its own server. They aren't part of this repository.
 
 Fonts: Nunito and Fredoka, under the SIL Open Font License (see `fonts/`). Text reading uses [Tesseract.js](https://github.com/naptha/tesseract.js) (Apache-2.0).
 

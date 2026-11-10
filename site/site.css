@@ -10,9 +10,6 @@
 .site-head nav a[aria-current] { color: var(--cloud); border-bottom-color: var(--meso); }
 @media (max-width: 800px) { .site-head { padding: 0 16px; } }
 
-/* The website has no item icons, so their empty slots take no room */
-span.icon { display: none; }
-
 /* ---------- the front page ---------- */
 .page { max-width: 1040px; margin: 0 auto; padding: 0 24px 48px; font-size: 16px; line-height: 1.55; }
 @media (max-width: 800px) { .page { padding: 0 16px 32px; } }

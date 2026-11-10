@@ -425,10 +425,10 @@ const agoText = ms => (ms < 6e4 ? 'just now' : ms < 36e5 ? `${Math.round(ms / 6e
 // An item's icon, which the local server downloads from OSMS once and keeps. Unknown items
 // and failed downloads keep an empty slot of the same size, so names stay in line. A broken
 // image with no alt text draws nothing. The address is whole, because the popped-out card is
-// an about:blank window, written into by this page. The website (site/) has no icon store, so
-// there every item gets the empty slot.
+// an about:blank window, written into by this page. The website serves the same address from
+// its own store (site/icons.js).
 const ICON_ORIGIN = typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? location.origin : '';
-const iconTag = id => (Number.isInteger(id) && !globalThis.PUBLIC_SITE ? `<img class="icon" src="${ICON_ORIGIN}/icon/${id}.png" alt="" width="22" height="22" draggable="false">` : '<span class="icon"></span>');
+const iconTag = id => (Number.isInteger(id) ? `<img class="icon" src="${ICON_ORIGIN}/icon/${id}.png" alt="" width="22" height="22" draggable="false">` : '<span class="icon"></span>');
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // An icon and a name, side by side in a .named box (theme.css), so a long name wraps beside the
