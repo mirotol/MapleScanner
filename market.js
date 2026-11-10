@@ -3,7 +3,9 @@
 const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear } = (({ norm, sim, fmt }) => {
   const DAY_MS = 864e5;
   const WINDOWS = [3, 7, 14]; // days, shortest first, because prices move fast
-  const FIRM_SELLERS = 3, SOLD_DAYS = 2;
+  // Named sellers a usual price needs to be firm (raised from 3 on Nov 10, to be harder to fake)
+  const FIRM_SELLERS = 5, SOLD_DAYS = 2;
+  const MOSTLY_ONE_MIN = 3; // open listings before "one seller holds most of the stock" can apply
   const CHECK_BELOW = -70, OVER_ABOVE = 25; // percent from the usual price
   // How far under the usual price a deal starts. Measured Nov 9 on the real list: from 50K,
   // -20% caught only the cheapest 7% of asks, and 10% of 150K is worth walking to. Under 50K
@@ -122,7 +124,7 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
       ask: asks.length ? lowerQuartile(asks) : null,
       cheapest: asks.length ? Math.min(...asks) : null,
       days,
-      mostlyOne: open.length >= FIRM_SELLERS && top / open.length >= MOSTLY_ONE,
+      mostlyOne: open.length >= MOSTLY_ONE_MIN &&top / open.length >= MOSTLY_ONE,
       // the upper quarter over the lower quarter of those prices, so one troll price can't widen it
       spread: theirs.length < 2 ? 1 : theirs[theirs.length - 1 - ((theirs.length - 1) >> 2)] / theirs[(theirs.length - 1) >> 2],
     };
@@ -249,7 +251,7 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
   // asked over the 3 days to the end of it, the usual price's shortest window, so a point
   // means the same as the usual price would have that day. Sold is the middle of sales, one
   // vote per seller. Asked is the lower quarter of each seller's standing ask, because a fake
-  // high ask is free. Each needs 3 named sellers, or that day has no point on that line: a
+  // high ask is free. Each needs FIRM_SELLERS named sellers, or that day has no point on that line: a
   // gap is better than a line drawn through one sale. dayStart gives a time's midnight.
   const TREND_DAYS = WINDOWS[0];
   const localMidnight = t => new Date(t).setHours(0, 0, 0, 0);

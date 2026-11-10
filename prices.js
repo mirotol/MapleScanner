@@ -233,7 +233,7 @@ function chartHtml(name, votes, usual, win) {
 
 // What sold and what was asked, day by day (dailyPrices in market.js), so a slow rise shows.
 // Straight lines between days, because a smoothed curve draws prices nobody saw, broken where
-// days pass with no point. Each point needs 3 sellers over the 3 days to it.
+// days pass with no point. Each point needs 5 sellers over the 3 days to it.
 function trendHtml(name, kept, usual, win, show) {
   const now = Date.now();
   if (win < 3 * DAY_MS) return '<div class="chart-empty">A trend needs 3 days or more. Pick 3 days, Week or All.</div>';
@@ -241,7 +241,7 @@ function trendHtml(name, kept, usual, win, show) {
   const days = dailyPrices(kept).filter(d => now - d.day <= span);
   const series = [['sold', 'Sold, middle of sales', show !== 'listed'], ['ask', 'Asking, low end', show !== 'sold']].filter(([, , on]) => on);
   const points = series.map(([key]) => days.filter(d => d[key]).map(d => ({ t: Math.min(now, d.day + DAY_MS / 2), day: d.day, ...d[key] })));
-  if (!points.some(p => p.length)) return '<div class="chart-empty">No day has 3 sellers yet, so there\'s no trend to draw. Each point needs 3 sellers over 3 days.</div>';
+  if (!points.some(p => p.length)) return '<div class="chart-empty">No day has 5 sellers yet, so there\'s no trend to draw. Each point needs 5 sellers over 3 days.</div>';
   const f = chartFrame(name, points.flat().map(p => p.price), usual, span);
   let marks = '';
   series.forEach(([key, label], i) => {

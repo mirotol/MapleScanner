@@ -7,7 +7,7 @@ const NOW = Date.UTC(2026, 10, 6, 12);
 const DAY = 864e5;
 const vote = (u, s, sold = false, t = NOW) => ({ u, s, sold, t });
 const at = votes => marketFor(votes, { now: NOW });
-const honest = [vote(100e3, 'Alder'), vote(105e3, 'Birch'), vote(110e3, 'Cedar'), vote(120e3, 'Dogwood')];
+const honest = [vote(100e3, 'Alder'), vote(100e3, 'Ash'), vote(105e3, 'Birch'), vote(110e3, 'Cedar'), vote(120e3, 'Dogwood')];
 const judged = (unit, votes, seller) => verdict({ unit }, marketFor(votes, { now: NOW, except: seller }), null);
 
 test('has nothing to say about an item never seen', () => {
@@ -24,21 +24,23 @@ test('a price is always one someone really set', () => {
   assert.equal(at([vote(15555, 'Alder'), vote(1555555, 'Birch')]).price, 15555);
 });
 
-test('needs three sellers to be firm', () => {
-  assert.equal(at([vote(100, 'Alder'), vote(100, 'Birch')]).firm, false);
-  assert.equal(at([vote(100, 'Alder'), vote(100, 'Birch'), vote(100, 'Cedar')]).firm, true);
+const five = ['Alder', 'Birch', 'Cedar', 'Dogwood', 'Elm'];
+
+test('needs five sellers to be firm', () => {
+  assert.equal(at(five.slice(0, 4).map(s => vote(100, s))).firm, false);
+  assert.equal(at(five.map(s => vote(100, s))).firm, true);
 });
 
 test('one 9,999,999 troll moves nothing, but stays in the range', () => {
   const m = at([...honest, vote(9999999, 'Troll')]);
-  assert.equal(m.price, 105e3);
+  assert.equal(m.price, at(honest).price);
   assert.equal(m.high, 9999999);
 });
 
 test('one seller with five high listings has one vote', () => {
   const pumped = [...honest, ...[300, 310, 320, 330, 340].map(k => vote(k * 1e3, 'Troll'))];
-  assert.equal(at(pumped).price, 105e3);
-  assert.equal(at(pumped).sellers, 5);
+  assert.equal(at(pumped).price, 100e3);
+  assert.equal(at(pumped).sellers, 6);
   assert.equal(judged(120e3, pumped, 'Dogwood').text, 'fair');
 });
 
@@ -61,15 +63,20 @@ test('wash sales on one day can not replace the asks', () => {
 });
 
 test('patient wash sales still can not make a fair listing a deal', () => {
-  const wash = [...honest, vote(200e3, 'Xylo', true, NOW - DAY), vote(200e3, 'Yew', true), vote(200e3, 'Zelkova', true)];
+  const wash = [...honest, ...['Uva', 'Vine', 'Xylo', 'Yew'].map(s => vote(200e3, s, true)), vote(200e3, 'Zelkova', true, NOW - DAY)];
   assert.equal(at(wash).basis, 'sold');
   assert.equal(at(wash).price, 200e3);
   assert.equal(judged(120e3, wash, 'Dogwood').text, 'fair');
 });
 
-test('sold beats asked once three sellers have sold over two days', () => {
-  const sales = [vote(600, 'Alder', true, NOW - DAY), vote(600, 'Birch', true), vote(620, 'Cedar', true), vote(1000, 'Dogwood'), vote(1100, 'Elm')];
+// Sales by five sellers over two days, the least that makes a sold price firm
+const sold5 = [vote(600, 'Alder', true, NOW - DAY), vote(600, 'Birch', true), vote(620, 'Cedar', true), vote(610, 'Dogwood', true), vote(590, 'Elm', true)];
+
+test('sold beats asked once five sellers have sold over two days', () => {
+  const sales = [...sold5, vote(1000, 'Fir'), vote(1100, 'Gum')];
   assert.deepEqual([at(sales).price, at(sales).basis, at(sales).firm], [600, 'sold', true]);
+  const four = [...sold5.slice(0, 4), vote(1000, 'Fir'), vote(1100, 'Gum')];
+  assert.equal(at(four).basis, 'asking', 'four sellers sold is not enough');
 });
 
 test('one seller selling a lot is still one seller', () => {
@@ -87,7 +94,7 @@ test('a listing later seen sold is no longer an ask', () => {
 });
 
 test('uses the shortest window with enough sellers, and says which', () => {
-  const old = t => [vote(1000, 'Elm', false, t), vote(1000, 'Fir', false, t), vote(1000, 'Gum', false, t)];
+  const old = t => ['Fir', 'Gum', 'Hazel', 'Ivy', 'Juniper'].map(s => vote(1000, s, false, t));
   assert.equal(at([...honest, ...old(NOW - 5 * DAY)]).days, 3);
   assert.equal(at([...honest, ...old(NOW - 5 * DAY)]).price, 100e3);
   assert.equal(at(old(NOW - 5 * DAY)).days, 7);
@@ -141,16 +148,16 @@ test('warns when one seller holds most of what is for sale', () => {
 test('a deal has to be under the usual price and the cheapest ask', () => {
   const deal = judged(70e3, honest);
   assert.deepEqual([deal.tag, deal.text, deal.rank], ['deal', 'deal -30%', 0]);
-  assert.match(deal.why, /vs 100K asking, 4 sellers, 3 days/);
+  assert.match(deal.why, /vs 100K asking, 5 sellers, 3 days/);
 });
 
 test('from a usual price of 50K a deal starts at 10% under, below that at 20%', () => {
   assert.deepEqual([judged(90e3, honest).tag, judged(90e3, honest).label], ['deal', '-10%']);
   assert.equal(judged(91e3, honest).tag, 'quiet');
-  const cheap = [vote(1000, 'Alder'), vote(1050, 'Birch'), vote(1100, 'Cedar')];
+  const cheap = [vote(1000, 'Alder'), vote(1000, 'Ash'), vote(1050, 'Birch'), vote(1100, 'Cedar'), vote(1100, 'Dogwood')];
   assert.equal(judged(850, cheap).tag, 'quiet', '15% off 1,000 is 150 mesos');
   assert.deepEqual([judged(800, cheap).tag, judged(800, cheap).label], ['deal', '-20%']);
-  const edge = [vote(50e3, 'Alder'), vote(52e3, 'Birch'), vote(55e3, 'Cedar')];
+  const edge = [vote(50e3, 'Alder'), vote(50e3, 'Ash'), vote(52e3, 'Birch'), vote(55e3, 'Cedar'), vote(55e3, 'Dogwood')];
   assert.equal(judged(45e3, edge).tag, 'deal', 'exactly 50K counts as 50K or more');
 });
 
@@ -254,8 +261,8 @@ test('a rail has nothing to show without a market', () => {
 });
 
 test('a rail places the listing and the sold price between the lowest and highest seen', () => {
-  const sold = [vote(100, 'Alder', true), vote(100, 'Birch', true, NOW - DAY), vote(100, 'Cedar', true)];
-  const rail = priceRail(1000, at([...sold, vote(10000, 'Dogwood')]));
+  const sold = five.map((s, i) => vote(100, s, true, NOW - (i % 2) * DAY));
+  const rail = priceRail(1000, at([...sold, vote(10000, 'Fir')]));
   assert.equal(rail.low, 100);
   assert.equal(rail.high, 10000);
   assert.equal(rail.here, 50);
@@ -314,7 +321,7 @@ test('the cheapest ask is the newest standing ask in the time picked, never a so
 });
 
 test('a set of 4 at 600,000 is not a deal next to sets at 650,000', () => {
-  const votes = ['a', 'b', 'c', 'd'].map((s, i) => ({ u: 650000 + i * 10000, s, sold: false, t: Date.now() }));
+  const votes = ['a', 'b', 'c', 'd', 'e'].map((s, i) => ({ u: 650000 + i * 10000, s, sold: false, t: Date.now() }));
   const market = marketFor(votes);
   assert.notEqual(verdict({ unit: 600000 }, market).tag, 'deal');
   assert.equal(verdict({ unit: 150000 }, market).tag, 'warn'); // what the old sum made of it
@@ -323,15 +330,16 @@ test('a set of 4 at 600,000 is not a deal next to sets at 650,000', () => {
 test('a usual price gets a confidence level from 1 to 3, raised only by what is costly to fake', () => {
   const level = (votes, opts) => usualSource(at(votes), opts);
   assert.deepEqual([level(honest).level, level(honest).word, level(honest).line], [2, 'Decent', 'asking'], 'asks alone never make it Solid');
-  assert.match(level(honest).why, /^Listed by 4 sellers, but not yet seen sold.*agree within 1.2×/);
-  assert.equal(level(honest).short, "4 sellers", "the label names what decided the level");
+  assert.match(level(honest).why, /^Listed by 5 sellers, but not yet seen sold by 5 sellers.*agree within 1.1×/);
+  assert.equal(level(honest).short, "5 sellers", "the label names what decided the level");
+  assert.equal(level(honest.slice(0, 4)).level, 1, 'four sellers is still thin');
   assert.equal(level([vote(100, 'Alder'), vote(140, 'Birch')]).level, 1);
   assert.match(level([vote(100, 'Alder'), vote(140, 'Birch')]).why, /^Only 2 sellers so far/);
   assert.equal(level([vote(100, ''), vote(300, '')]).level, 1);
   assert.match(level([vote(100, ''), vote(300, '')]).why, /No seller names were read/);
-  const sales = [vote(600, 'Alder', true, NOW - DAY), vote(600, 'Birch', true), vote(620, 'Cedar', true), vote(1000, 'Dogwood')];
-  assert.deepEqual([level(sales).level, level(sales).line, level(sales).short], [3, 'sold', 'sold often'], 'three sellers sold over two days');
-  const oneDay = [vote(600, 'Alder', true), vote(600, 'Birch', true), vote(620, 'Cedar', true)];
+  const sales = [...sold5, vote(1000, 'Fir')];
+  assert.deepEqual([level(sales).level, level(sales).line, level(sales).short], [3, 'sold', 'sold often'], 'five sellers sold over two days');
+  const oneDay = sold5.map(v => ({ ...v, t: NOW }));
   assert.equal(level(oneDay).level, 2, 'sales all on one day are cheap to stage');
   assert.match(level(oneDay).why, /all on one day/);
   assert.equal(level(oneDay).short, 'sold, 1 day');
@@ -340,7 +348,7 @@ test('a usual price gets a confidence level from 1 to 3, raised only by what is 
 
 test('sellers far apart lose a level, but one troll price among many does not', () => {
   const level = votes => usualSource(at(votes));
-  const apart = [vote(100, 'Alder'), vote(105, 'Birch'), vote(400, 'Cedar')];
+  const apart = [vote(100, 'Alder'), vote(100, 'Birch'), vote(105, 'Cedar'), vote(400, 'Dogwood'), vote(400, 'Elm')];
   assert.equal(at(apart).spread, 4);
   assert.equal(level(apart).level, 1);
   assert.match(level(apart).why, /4\.0× apart/);
@@ -349,16 +357,16 @@ test('sellers far apart lose a level, but one troll price among many does not', 
 });
 
 test('old data, one seller holding the stock, and mixed gear copies cap or lower the level', () => {
-  const old = [vote(600, 'Alder', true, NOW - 10 * DAY), vote(600, 'Birch', true, NOW - 9 * DAY), vote(600, 'Cedar', true, NOW - 9 * DAY)];
+  const old = five.map((s, i) => vote(600, s, true, NOW - (9 + (i % 2)) * DAY));
   assert.equal(at(old).days, 14);
   assert.equal(usualSource(at(old)).level, 2);
   assert.match(usualSource(at(old)).why, /over a week old/);
   assert.equal(usualSource(at(old)).short, 'over a week old');
-  const cornered = [vote(100, 'Alder'), vote(110, 'Birch'), ...[100, 105, 110, 115].map(u => vote(u, 'Corner'))];
+  const cornered = [vote(100, 'Alder'), vote(110, 'Birch'), vote(105, 'Cedar'), vote(108, 'Dogwood'), ...[100, 105, 110, 115, 120, 125].map(u => vote(u, 'Corner'))];
   assert.equal(at(cornered).mostlyOne, true);
   assert.equal(usualSource(at(cornered)).level, 1);
   assert.equal(usualSource(at(cornered)).short, "one seller's stock");
-  const sales = [vote(600, 'Alder', true, NOW - DAY), vote(600, 'Birch', true), vote(620, 'Cedar', true)];
+  const sales = sold5;
   assert.equal(usualSource(at(sales), { gear: true }).level, 2, 'a gear name mixes clean and scrolled copies');
   assert.match(usualSource(at(sales), { gear: true }).why, /Clean and scrolled copies are mixed/);
   assert.equal(usualSource(at(sales), { gear: true }).short, 'mixed condition');
@@ -380,26 +388,26 @@ test('sellers more than 10× apart are said to be over 10× apart, not 18,182×'
   assert.match(usualSource(at(trolled)).why, /prices are over 10× apart/);
 });
 
-test('the trend has a point for each day with 3 sellers over the 3 days to it', () => {
+test('the trend has a point for each day with 5 sellers over the 3 days to it', () => {
   const day = t => Math.floor(t / DAY) * DAY; // UTC days, so the test doesn't depend on where it runs
   const votes = [
-    vote(300, 'Alder', true, NOW - 2 * DAY), vote(310, 'Birch', true, NOW - 2 * DAY), vote(320, 'Cedar', true, NOW - 2 * DAY),
-    vote(340, 'Alder', true, NOW), vote(350, 'Dogwood', true, NOW),
-    vote(400, 'Elm', false, NOW), vote(380, 'Fir', false, NOW), vote(360, 'Gum', false, NOW), vote(9999999, 'Troll', false, NOW),
+    ...[300, 310, 320, 330, 340].map((u, i) => vote(u, five[i], true, NOW - 2 * DAY)),
+    vote(345, 'Alder', true, NOW), vote(350, 'Fir', true, NOW),
+    ...[400, 380, 360, 370, 390].map((u, i) => vote(u, ['Gum', 'Hazel', 'Ivy', 'Juniper', 'Kapok'][i], false, NOW)), vote(9999999, 'Troll', false, NOW),
   ];
   const days = dailyPrices(votes, { dayStart: day });
   assert.deepEqual(days.map(d => d.day), [day(NOW - 2 * DAY), day(NOW)]);
-  assert.deepEqual(days[0].sold, { price: 310, sellers: 3 });
+  assert.deepEqual(days[0].sold, { price: 320, sellers: 5 });
   assert.equal(days[0].ask, null); // no asks: a gap, not a guess
   // Today counts the 3 days to it. Alder's two sales are one vote, at their lower middle (300),
-  // so 300, 310, 320, 350 gives 310
-  assert.deepEqual(days[1].sold, { price: 310, sellers: 4 });
+  // so 300, 310, 320, 330, 340, 350 gives 320
+  assert.deepEqual(days[1].sold, { price: 320, sellers: 6 });
   // Asks lean low, so the troll doesn't lift the line
-  assert.deepEqual(days[1].ask, { price: 360, sellers: 4 });
+  assert.deepEqual(days[1].ask, { price: 370, sellers: 6 });
 });
 
-test('a day with under 3 sellers has no trend point', () => {
-  const days = dailyPrices([vote(300, 'Alder', true), vote(310, 'Birch', true), vote(320, '', true)], { dayStart: t => Math.floor(t / DAY) * DAY });
+test('a day with under 5 sellers has no trend point', () => {
+  const days = dailyPrices([...five.slice(0, 4).map((s, i) => vote(300 + i, s, true)), vote(320, '', true)], { dayStart: t => Math.floor(t / DAY) * DAY });
   assert.equal(days[0].sold, null);
 });
 
