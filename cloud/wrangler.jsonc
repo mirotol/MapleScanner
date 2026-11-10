@@ -1,17 +1,21 @@
 // The shared price database: a Worker in front of D1.
 //   npm run cloud:dev      local Worker and local D1 on http://127.0.0.1:8787, no account needed
-//   npm run cloud:deploy   needs `npx wrangler login` and database_id filled in below
+//   npm run cloud:deploy   needs `npx wrangler login` to the account that owns maplescanner.app
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "maplescanner-api",
   "main": "index.js",
   "compatibility_date": "2026-10-01",
+  // Only on the app's own domain: the account's workers.dev address is named after its email.
+  "routes": [{ "pattern": "api.maplescanner.app", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "maplescanner",
-      // Filled in from `wrangler d1 create maplescanner --location weur` before the first deploy
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // Created Nov 10 with `wrangler d1 create maplescanner --location weur`
+      "database_id": "00a3aefa-dda1-49c1-a5bc-b7438da0e2df",
       "migrations_dir": "migrations"
     }
   ],

@@ -10,8 +10,9 @@ const crypto = require('crypto');
 const { SEEN_DAYS } = require('./pricing.js');
 const { listingRules } = require('./listing.js');
 
-// Set once the Worker is deployed. Until then the app needs CLOUD_URL (see serve.js).
-const PRODUCTION_URL = null;
+// The live Worker (cloud/), on the app's own domain. CLOUD_URL overrides it, such as for the local
+// Worker (npm run cloud:dev).
+const PRODUCTION_URL = 'https://api.maplescanner.app';
 
 const DAY_MS = 864e5;
 const BATCH = 500;          // the Worker's limit per upload
