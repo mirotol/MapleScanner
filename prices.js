@@ -109,7 +109,7 @@ function renderList() {
   const shown = shownItems();
   if (!shown.length) {
     const here = searched.filter(inTab);
-    const empty = !rows.length ? 'Nothing saved yet. Open a shop while the scanner is running and it will appear here.'
+    const empty = !rows.length ? 'No prices yet. Shops you and other players scan appear here for everyone.'
       : minSure && here.length ? 'Every price here is ●○○ so far. Turn off Hide ●○○ to see them.'
       : 'No item matches. Names come from shops you\'ve opened.';
     $('list').innerHTML = `<tr><td class="empty">${empty}</td></tr>`;

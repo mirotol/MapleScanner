@@ -1,5 +1,5 @@
 // The Windows app: runs the local server and shows its pages in app windows.
-const { app, BrowserWindow, Menu, desktopCapturer, globalShortcut, ipcMain, screen, session } = require('electron');
+const { app, BrowserWindow, Menu, desktopCapturer, globalShortcut, ipcMain, screen, session, shell } = require('electron');
 const path = require('path');
 const { execFile } = require('child_process');
 const { autoUpdater } = require('electron-updater');
@@ -52,6 +52,7 @@ function allowCapture() {
 // because the player's keyboard and mouse belong to the game.
 function openPanel(window) {
   window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) shell.openExternal(url); // a link on the About tab opens in the browser
     if (url !== 'about:blank') return { action: 'deny' };
     return {
       action: 'allow',
@@ -158,13 +159,47 @@ async function createMainWindow() {
   await main.loadURL(origin);
 }
 
-// Installed copies look for a newer release on GitHub at start, download it in the background and
-// install it when the app is next closed, so nothing interrupts play. No pop-up or notification.
-// Running from source (npm start) or a failed check does nothing.
-function checkForUpdates() {
+// ---------- updates ----------
+// Installed copies check GitHub for a newer published release at start and every few hours. With
+// "Download updates automatically" on (the default), a new version downloads in the background;
+// off, the About tab offers it. A downloaded update installs when the player presses Restart now,
+// or else when the app is next closed, never in the middle of a session. The page shows each step
+// (`update` messages), and the stall card shows none of it, so nothing interrupts play.
+// Running from source (npm start) never updates: its state is 'dev'.
+const UPDATE_EVERY_MS = 6 * 3600e3;
+let update = { state: app.isPackaged ? 'idle' : 'dev', current: app.getVersion() };
+
+function setUpdate(changes) {
+  update = { ...update, ...changes };
+  main?.webContents.send('update', update);
+}
+const autoDownload = () => readSettings(settingsFile).autoUpdate;
+function checkUpdate() {
+  if (!app.isPackaged || ['checking', 'downloading', 'ready'].includes(update.state)) return update;
+  autoUpdater.checkForUpdates().catch(() => {}); // a failure arrives as an error event
+  return update;
+}
+function downloadUpdate() {
+  if (update.state !== 'available') return update;
+  setUpdate({ state: 'downloading', percent: 0 });
+  autoUpdater.downloadUpdate().catch(() => {});
+  return update;
+}
+function setupUpdates() {
   if (!app.isPackaged) return;
-  autoUpdater.on('error', err => console.error('Update check failed:', err?.message ?? err));
-  autoUpdater.checkForUpdates().catch(() => {});
+  autoUpdater.autoDownload = false; // the setting decides, read each time
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => setUpdate({ state: 'checking', error: null }));
+  autoUpdater.on('update-not-available', () => setUpdate({ state: 'latest', checked: Date.now() }));
+  autoUpdater.on('update-available', info => {
+    setUpdate({ state: 'available', version: info.version, checked: Date.now() });
+    if (autoDownload()) downloadUpdate();
+  });
+  autoUpdater.on('download-progress', p => setUpdate({ state: 'downloading', percent: Math.floor(p.percent) }));
+  autoUpdater.on('update-downloaded', info => setUpdate({ state: 'ready', version: info.version, percent: 100 }));
+  autoUpdater.on('error', err => setUpdate({ state: 'error', error: err?.message ?? String(err) }));
+  checkUpdate();
+  setInterval(checkUpdate, UPDATE_EVERY_MS);
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -175,7 +210,7 @@ if (!app.requestSingleInstanceLock()) {
     main?.focus();
   });
   app.on('will-quit', () => globalShortcut.unregisterAll());
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     ipcMain.handle('list-windows', listWindows);
     ipcMain.handle('choose-window', (event, id) => { chosenWindow = id; });
@@ -187,8 +222,13 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('set-hotkey', (event, accelerator) => setHotkey(accelerator));
     // While Settings waits for a new key, so the old one reaches the page instead of the card.
     ipcMain.on('pause-hotkey', (event, paused) => { if (paused) globalShortcut.unregisterAll(); else useHotkey(hotkey); });
+    ipcMain.handle('update-status', () => update);
+    ipcMain.handle('update-check', checkUpdate);
+    ipcMain.handle('update-download', downloadUpdate);
+    // Installs silently and starts the new version. Only once it's downloaded.
+    ipcMain.handle('update-restart', () => { if (update.state === 'ready') autoUpdater.quitAndInstall(true, true); });
     allowCapture();
-    checkForUpdates();
-    return createMainWindow();
+    await createMainWindow(); // it finds the settings, which say whether to download by itself
+    setupUpdates();
   });
 }

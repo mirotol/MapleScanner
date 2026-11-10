@@ -16,9 +16,19 @@
   .tabs button:hover { background: none; color: var(--cloud); }
   .tabs button.on { color: var(--cloud); font-weight: 700; border-bottom-color: var(--meso); }
   #pricesFrame { flex: 1; border: 0; width: 100%; min-height: 0; }
-  #pricesFrame[hidden], #scannerTab[hidden], #settingsTab[hidden] { display: none; }
-  #settingsTab { flex: 1; min-height: 0; overflow-y: auto; padding: 24px; }
-  @media (max-width: 760px) { #settingsTab { padding: 16px; } }
+  #pricesFrame[hidden], #scannerTab[hidden], #settingsTab[hidden], #aboutTab[hidden] { display: none; }
+  #settingsTab, #aboutTab { flex: 1; min-height: 0; overflow-y: auto; padding: 24px; }
+  @media (max-width: 760px) { #settingsTab, #aboutTab { padding: 16px; } }
+  /* the update notice at the end of the tab bar: progress while downloading, Restart now when ready */
+  .tabs .update { -webkit-app-region: no-drag; margin-left: auto; align-self: center; font-size: 13px; padding: 4px 11px; border: 0; }
+  .tabs .update.ready { background: var(--meso); color: var(--on-bright); font-weight: 700; }
+  .tabs .update[hidden] { display: none; }
+  .about h3 { font: 600 16px/1.3 var(--display); margin: 26px 0 8px; }
+  .about p, .about li { color: var(--mist); font-size: 13px; line-height: 1.5; }
+  .about ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .about a { color: var(--meso-text); }
+  .about .version { color: var(--cloud); font-size: 15px; margin: 0 0 6px; }
+  .update-row { cursor: default; }
   .settings { max-width: 640px; }
   .settings h2 { margin-bottom: 14px; }
   .setting.keyed { cursor: default; }
@@ -59,12 +69,14 @@
   <button id="tabScanner" class="on" role="tab" aria-selected="true">Scanner</button>
   <button id="tabPrices" role="tab" aria-selected="false">Prices</button>
   <button id="tabSettings" role="tab" aria-selected="false">Settings</button>
+  <button id="tabAbout" role="tab" aria-selected="false">About</button>
+  <button id="updatePill" class="update" hidden></button>
 </nav>
 <div id="scannerTab">
   <main>
     <div>
       <h2>Ready when the game is</h2>
-      <p class="intro">Start the game in a window at the default UI size, then start scanning. The picture stays on this PC: nothing is uploaded.</p>
+      <p class="intro">Start the game in a window at the default UI size, then start scanning. The picture stays on this PC. Only the listings read from it are shared, with every MapleScanner player.</p>
       <div class="controls">
         <button id="share" class="primary">Start scanning</button>
         <button id="pop">Pop out stall card</button>
@@ -149,6 +161,41 @@
     </div>
     <p id="hotkeyNote" class="note" role="status"></p>
     <p id="settingsNote" class="note" role="status"></p>
+  </section>
+</div>
+<div id="aboutTab" hidden>
+  <section class="settings about">
+    <h2>About MapleScanner</h2>
+    <p class="version">Version <b id="aboutVersion"></b></p>
+    <p>Free Market prices for MapleStory Classic, read from your game window and shared between players.</p>
+    <div class="setting update-row">
+      <span class="setting-text">
+        <b>Updates</b>
+        <span id="updateText" role="status"></span>
+      </span>
+      <span class="keys"><button id="updateAction" hidden></button></span>
+    </div>
+    <label class="setting" id="autoUpdateSetting" hidden>
+      <span class="setting-text">
+        <b>Download updates automatically</b>
+        <span>New versions download in the background while you play, and install when you press Restart now or close the app, never in the middle of a session. Off, a new version waits here until you download it.</span>
+      </span>
+      <input type="checkbox" id="settingAutoUpdate" role="switch">
+    </label>
+    <p id="aboutNote" class="note" role="status"></p>
+
+    <h3>What it sends</h3>
+    <p>Prices need internet. MapleScanner sends the shop listings it read off your screen (item, seller, amount, price, channel, room and shop title) with an anonymous key made when it was installed. The key identifies this install, not you, and the price server keeps only a scrambled copy of it. Your IP address isn't stored. Seller names are public, as they are in the game. It never sends pictures of your screen, and never touches the game's memory, files or network traffic.</p>
+
+    <h3>Licences and credits</h3>
+    <ul>
+      <li>MapleScanner is free software under the <a href="https://github.com/mirotol/MapleScanner/blob/main/LICENSE" target="_blank">GNU GPL, version 3 or later</a>. The <a href="https://github.com/mirotol/MapleScanner" target="_blank">source code</a> is on GitHub, and so are <a href="https://github.com/mirotol/MapleScanner/releases" target="_blank">the release notes</a>.</li>
+      <li>Item data: Data from <a href="https://osmsdataexplorer.com" target="_blank">OSMS Data Explorer</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a>, reduced to item names, NPC prices, scroll success rates, upgrade slots, main stat lines, plain gear stats, which gear has no description, which items recharge and item ids for icons. Item icons are downloaded from it once each and kept on this PC.</li>
+      <li>MapleStory and its game content are © Nexon. MapleScanner is an unofficial fan project, not affiliated with or endorsed by Nexon.</li>
+      <li>Fonts: Nunito and Fredoka, under the SIL Open Font License 1.1.</li>
+      <li>Text reading: Tesseract.js and Tesseract, under the Apache License 2.0.</li>
+      <li>Built with Electron (MIT), which includes Chromium and Node.js under their own licences, listed in LICENSES.chromium.html in the app's folder. Updates use electron-updater (MIT).</li>
+    </ul>
   </section>
 </div>
 <iframe id="pricesFrame" title="Price database" hidden></iframe>

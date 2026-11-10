@@ -13,4 +13,12 @@ contextBridge.exposeInMainWorld('desktop', {
   pauseHotkey: paused => ipcRenderer.send('pause-hotkey', paused),
   onPopOut: run => ipcRenderer.on('pop-out', () => run()),
   onCardShown: run => ipcRenderer.on('card-shown', (event, shown) => run(shown)),
+  // Updates, see desktop/main.js: the state now, and each change as it happens.
+  update: {
+    status: () => ipcRenderer.invoke('update-status'),
+    check: () => ipcRenderer.invoke('update-check'),
+    download: () => ipcRenderer.invoke('update-download'),
+    restart: () => ipcRenderer.invoke('update-restart'),
+    onChange: run => ipcRenderer.on('update', (event, state) => run(state)),
+  },
 });

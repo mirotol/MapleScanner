@@ -151,7 +151,8 @@ function sendIcon(icons, id, res) {
 // it has to check Windows will give it the key first (desktop/main.js).
 // textSize scales the pages and the stall card as a whole (CSS zoom), because their sizes are in
 // pixels. Only the sizes Settings offers.
-const SETTINGS = { channelWatch: true, cardHotkey: 'Scrolllock', textSize: 1 };
+// autoUpdate: download new versions in the background (desktop/main.js). Only the app reads it.
+const SETTINGS = { channelWatch: true, cardHotkey: 'Scrolllock', textSize: 1, autoUpdate: true };
 const TEXT_SIZES = [0.9, 1, 1.15, 1.3, 1.5];
 const allowed = (key, value) => typeof value === typeof SETTINGS[key] && (key !== 'textSize' || TEXT_SIZES.includes(value));
 
@@ -186,6 +187,7 @@ function start({ port = 0, dataDir, debugDir, download, cloudUrl, key, fetch: cl
     '/api/state': query => cloud.state({ full: query.has('full') }),
     '/api/history': query => cloud.history(query.get('name')),
     '/api/status': () => cloud.status(),
+    '/api/about': () => ({ version: require('./package.json').version }),
     '/api/settings': () => readSettings(settingsFile),
   };
   const writes = {

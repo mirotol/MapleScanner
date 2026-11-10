@@ -816,7 +816,7 @@ drop.addEventListener('drop', e => {
 
 // ---------- tabs ----------
 // Prices sits in a frame, so scanning carries on while it's open.
-const TABS = { scanner: ['tabScanner', 'scannerTab'], prices: ['tabPrices', 'pricesFrame'], settings: ['tabSettings', 'settingsTab'] };
+const TABS = { scanner: ['tabScanner', 'scannerTab'], prices: ['tabPrices', 'pricesFrame'], settings: ['tabSettings', 'settingsTab'], about: ['tabAbout', 'aboutTab'] };
 function showTab(name) {
   for (const [tab, [button, page]] of Object.entries(TABS)) {
     $(page).hidden = tab !== name;
@@ -833,8 +833,82 @@ for (const tab of Object.keys(TABS)) $(TABS[tab][0]).onclick = () => showTab(tab
 // ---------- settings ----------
 function showSettings() {
   $('settingChannelWatch').checked = settings.channelWatch;
+  $('settingAutoUpdate').checked = settings.autoUpdate ?? true;
   $('settingTextSize').value = String(settings.textSize ?? 1);
   showTextSize();
+}
+
+// ---------- about and updates ----------
+// The app checks GitHub for new versions itself (desktop/main.js) and tells the page each step.
+// The About tab shows where it is, and the end of the tab bar shows a download in progress and
+// then Restart now. The stall card shows none of it, so nothing interrupts play.
+let update = null; // { state, current, version, percent, checked, error }, only in the Windows app
+
+function updateView(u) {
+  if (!window.desktop) return { text: 'The browser version runs from the source code, so it updates with it (git pull).' };
+  const v = u?.version ?? '';
+  switch (u?.state) {
+    case 'dev': return { text: 'Running from the source code (npm start), so it updates with it, not here.' };
+    case 'latest': return { text: `You have the latest version. Checked at ${new Date(u.checked).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`, action: ['Check for updates', 'check'] };
+    case 'available': return { text: `Version ${v} is available.`, action: ['Download', 'download'] };
+    case 'downloading': return {
+      text: `Downloading version ${v}: ${u.percent ?? 0}%. Keep playing: it installs when you restart.`,
+      action: ['Downloading…', null], pill: `Downloading update ${u.percent ?? 0}%`,
+    };
+    case 'ready': return {
+      text: `Version ${v} is ready. Restart now to start using it, or it installs the next time you close MapleScanner.`,
+      action: ['Restart now', 'restart', true], pill: 'Restart to update', ready: true,
+    };
+    case 'error': return { text: `Couldn't update: ${String(u.error).slice(0, 160)}`, action: ['Try again', 'check'] };
+    default: return { text: 'Checking for updates…', action: ['Checking…', null] };
+  }
+}
+
+function showUpdate() {
+  const view = updateView(update), button = $('updateAction'), pill = $('updatePill');
+  $('updateText').textContent = view.text;
+  button.hidden = !view.action;
+  if (view.action) {
+    const [label, run, primary] = view.action;
+    button.textContent = label;
+    button.disabled = !run;
+    button.classList.toggle('primary', !!primary);
+    button.dataset.run = run ?? '';
+  }
+  pill.hidden = !view.pill;
+  pill.textContent = view.pill ?? '';
+  pill.classList.toggle('ready', !!view.ready);
+  pill.title = view.ready ? 'Installs the new version and starts it again. Scanning stops for a few seconds.' : 'See the update on the About tab';
+}
+
+const runUpdate = run => window.desktop?.update?.[run]?.().then(u => { if (u) { update = u; showUpdate(); } });
+$('updateAction').onclick = e => runUpdate(e.currentTarget.dataset.run);
+$('updatePill').onclick = () => (update?.state === 'ready' ? runUpdate('restart') : showTab('about'));
+
+async function setAutoUpdate(on) {
+  const toggle = $('settingAutoUpdate'), note = $('aboutNote');
+  toggle.disabled = true;
+  try {
+    settings = await api('/api/settings', { autoUpdate: on });
+    note.textContent = '';
+    if (on && update?.state === 'available') await runUpdate('download');
+  } catch (err) {
+    note.textContent = `Couldn't save the setting: ${err.message}`;
+  }
+  showSettings();
+  toggle.disabled = false;
+}
+$('settingAutoUpdate').onchange = e => setAutoUpdate(e.target.checked);
+
+async function loadAbout() {
+  $('aboutVersion').textContent = (await api('/api/about').catch(() => null))?.version ?? '';
+  const updates = window.desktop?.update;
+  $('autoUpdateSetting').hidden = !updates;
+  if (updates) {
+    updates.onChange(u => { update = u; showUpdate(); });
+    update = await updates.status();
+  }
+  showUpdate();
 }
 
 // ---------- text size ----------
@@ -977,6 +1051,7 @@ async function loadHotkey() {
     facts = itemFacts(list);
     settings = await api('/api/settings').catch(err => { console.error(err); return settings; });
     showSettings();
+    loadAbout().catch(console.error);
     await loadState();
   } catch (err) {
     console.error(err);
