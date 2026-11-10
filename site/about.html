@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About · MapleScanner</title>
+<meta name="description" content="How MapleScanner reads the game, what it sends, its source code, licences and credits.">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<!--site-head-->
+<main class="page">
+  <div class="page-title">
+    <h1>About MapleScanner</h1>
+    <p class="lead">Free Market prices for MapleStory Classic, read from your game window and shared between players.</p>
+  </div>
+
+  <section id="screen">
+    <h2>It only reads the screen</h2>
+    <p>Everything comes from the picture of the game window, the same as a screenshot. MapleScanner never touches the game's memory, files, network traffic or ports.</p>
+  </section>
+
+  <section id="sends">
+    <h2>What it sends</h2>
+    <p>Prices need internet. MapleScanner sends the shop listings it read off your screen (item, seller, amount, price, channel, room and shop title) with an anonymous key made when it was installed. The key identifies the install, not you, and the price server keeps only a scrambled copy of it. Your IP address isn't stored.</p>
+    <p>Seller names are public, as they are in the game. It never sends pictures of your screen, and nothing about your account.</p>
+  </section>
+
+  <section id="source">
+    <h2>Open source</h2>
+    <p>MapleScanner is free software under the <a href="https://github.com/mirotol/MapleScanner/blob/main/LICENSE">GNU GPL, version 3 or later</a>. The <a href="https://github.com/mirotol/MapleScanner">source code</a> is on GitHub, so anyone can check what it does, and so are <a href="https://github.com/mirotol/MapleScanner/releases">the release notes</a>.</p>
+  </section>
+
+  <section id="credits">
+    <h2>Credits</h2>
+    <ul class="credits">
+      <li>Item data from <a href="https://osmsdataexplorer.com">OSMS Data Explorer</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, reduced to item names, NPC prices, scroll success rates, upgrade slots, main stat lines, plain gear stats, which gear has no description, which items recharge and item ids for icons.</li>
+      <li>Fonts: Nunito and Fredoka, under the SIL Open Font License 1.1.</li>
+      <li>Text reading in the app: Tesseract.js and Tesseract, under the Apache License 2.0.</li>
+      <li>The app is built with Electron (MIT), and updates itself with electron-updater (MIT).</li>
+      <li>MapleStory and its game content are © Nexon. MapleScanner is an unofficial fan project, not affiliated with or endorsed by Nexon.</li>
+    </ul>
+  </section>
+</main>
+<!--site-foot-->
+</body>
+</html>

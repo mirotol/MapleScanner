@@ -1,0 +1,56 @@
+/* The website's own styles, on top of the app's theme.css. Colours and fonts come from its :root. */
+
+/* ---------- the header, on every page ---------- */
+.site-head { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; padding: 0 24px; border-bottom: 1px solid var(--dusk); }
+.site-head .brand { font: 600 20px/1 var(--display); color: var(--cloud); text-decoration: none; padding: 16px 0; margin-right: auto; }
+.site-head nav { display: flex; gap: 4px; align-self: stretch; }
+/* the chosen page has an orange line under it, like the app's tabs */
+.site-head nav a { display: flex; align-items: center; font: 600 14px/1 var(--display); color: var(--mist); text-decoration: none; padding: 2px 10px 0; margin-bottom: -1px; border-bottom: 2px solid transparent; }
+.site-head nav a:hover { color: var(--cloud); }
+.site-head nav a[aria-current] { color: var(--cloud); border-bottom-color: var(--meso); }
+@media (max-width: 800px) { .site-head { padding: 0 16px; } }
+
+/* The website has no item icons, so their empty slots take no room */
+span.icon { display: none; }
+
+/* ---------- the front page ---------- */
+.page { max-width: 1040px; margin: 0 auto; padding: 0 24px 48px; font-size: 16px; line-height: 1.55; }
+@media (max-width: 800px) { .page { padding: 0 16px 32px; } }
+.page a.primary { display: inline-block; background: var(--meso); color: var(--on-bright); font: 600 18px/1 var(--display); padding: 14px 22px; border-radius: 8px; text-decoration: none; }
+.page a.primary:hover { filter: brightness(1.08); }
+.page a.plain { font: 600 16px/1 var(--display); text-decoration: none; }
+.page a.plain:hover { text-decoration: underline; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 40px 56px; align-items: center; padding: 56px 0 48px; }
+.hero h1 { font-size: clamp(32px, 5vw, 46px); line-height: 1.1; letter-spacing: -.01em; text-wrap: balance; }
+.hero .lead { font-size: 18px; color: var(--mist); margin-top: 16px; max-width: 34em; }
+.hero .get { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 28px; }
+.hero .small { font-size: 13px; color: var(--mist); margin-top: 12px; }
+.example { margin: 0; }
+.example .stall { font-size: 14px; line-height: 1.45; box-shadow: 0 0 0 1px var(--ridge), 0 14px 32px rgb(42 26 8 / 12%); }
+.example figcaption { font-size: 13px; color: var(--mist); text-align: center; margin-top: 12px; }
+@media (max-width: 800px) {
+  .hero { grid-template-columns: minmax(0, 1fr); padding: 36px 0 32px; }
+  .example { justify-self: center; width: 340px; max-width: 100%; }
+}
+
+.page-title { padding: 48px 0 40px; }
+.page-title h1 { font-size: clamp(30px, 5vw, 40px); line-height: 1.1; }
+.page-title .lead { font-size: 18px; color: var(--mist); margin-top: 12px; max-width: 34em; }
+.credits { margin: 0; padding-left: 20px; max-width: 46em; }
+.credits li + li { margin-top: 8px; }
+
+.page section { padding: 36px 0; border-top: 1px solid var(--dusk); }
+.page h2 { font-size: 26px; line-height: 1.2; margin-bottom: 14px; }
+.page section > p { max-width: 42em; }
+.page section > p + p { margin-top: 12px; }
+.steps { list-style: none; counter-reset: step; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 32px; padding: 0; margin: 4px 0 0; }
+.steps li { counter-increment: step; }
+.steps li::before { content: counter(step); display: block; font: 600 15px/28px var(--display); width: 28px; text-align: center; border-radius: 50%; background: var(--dusk); color: var(--meso-text); margin-bottom: 10px; }
+.steps b { display: block; font: 600 18px/1.3 var(--display); margin-bottom: 4px; }
+.steps span { color: var(--mist); font-size: 15px; }
+@media (max-width: 800px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+.page kbd { font: 600 13px var(--text); background: var(--dusk); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+
+.site-foot { max-width: 1040px; margin: 0 auto; padding: 24px 24px 40px; border-top: 1px solid var(--dusk); color: var(--mist); font-size: 13px; }
+@media (max-width: 800px) { .site-foot { padding: 20px 16px 32px; } }

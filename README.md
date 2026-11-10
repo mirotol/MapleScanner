@@ -28,6 +28,7 @@ npm start
 - `npm test` runs the price, name, tooltip card and price server tests.
 - `npm run cloud:dev` runs the price server (a Cloudflare Worker with D1, in `cloud/`) locally on http://127.0.0.1:8787. Apply its schema first with `npx wrangler d1 migrations apply maplescanner --local --config cloud/wrangler.jsonc`.
 - `CLOUD_URL=http://127.0.0.1:8787 node serve.js` runs the browser version on http://localhost:8123 (Edge or Chrome) against it.
+- `npm run site:dev` builds the website (`site/`, for maplescanner.app) and serves it on http://127.0.0.1:8790. Opened locally, its Prices page reads from the local price server above.
 - `npm run dist` builds the Windows installer into `dist/`.
 - `npm run items` refreshes `osms-items.json` from OSMS Data Explorer.
 

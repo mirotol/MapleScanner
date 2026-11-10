@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download MapleScanner: Free Market prices for MapleStory Classic</title>
+<meta name="description" content="A free Windows app that reads the Free Market shops on your screen and tells you which prices are deals. Every player's scans go into one shared price list.">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<!--site-head-->
+<main class="page">
+  <div class="hero">
+    <div>
+      <h1>Know a good price before you buy</h1>
+      <p class="lead">MapleScanner reads the Free Market shop open on your screen and marks each item as a deal, fair or overpriced, with where it was cheaper. For MapleStory Classic, on Windows.</p>
+      <div class="get" id="download">
+        <a class="primary" id="downloadButton" href="https://github.com/mirotol/MapleScanner/releases/latest">Download for Windows</a>
+        <a class="plain" href="/prices">Browse the prices</a>
+      </div>
+      <p class="small" id="downloadNote">Free and open source.</p>
+    </div>
+    <figure class="example">
+      <!-- The app's stall card, drawn with its own styles. The shop and its prices are made up. -->
+      <div class="stall" role="img" aria-label="Example of MapleScanner's price card for an open shop">
+        <div class="bar"><span class="live on"></span><span class="text">Reading this shop</span><span class="channel">CH.7</span></div>
+        <div class="top">
+          <div class="shop-head"><div class="who"><h3>Mapleberry</h3><span class="count">1 deal</span></div>
+            <p>FM 3 · 4 for sale</p></div>
+        </div>
+        <div class="lots">
+          <div class="lot"><span class="say deal">−18%</span><span class="what named"><span class="name">Iron Ore</span></span><span class="cost">280</span><span class="lot-note">Usually 340.</span></div>
+          <div class="lot"><span class="say quiet">fair</span><span class="what named"><span class="name">Power Elixir</span></span><span class="cost">4,900</span></div>
+          <div class="lot"><span class="say over">+35%</span><span class="what named"><span class="name">Leather</span></span><span class="cost">270</span><span class="lot-go">Cheaper: 195 at CH.3 FM 5, 20 min ago</span></div>
+          <div class="lot sold"><span class="say quiet">sold</span><span class="what named"><span class="name">Mithril Titans</span></span><span class="cost">4,399</span></div>
+          <div class="lot"><span class="say quiet">hover</span><span class="what named"><span class="name">Blue Sauna Robe</span></span><span class="cost">30K</span><span class="lot-note">Its stats decide the price.</span></div>
+        </div>
+      </div>
+      <figcaption>The price card, with a made-up shop</figcaption>
+    </figure>
+  </div>
+
+  <section>
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><b>Open a shop</b><span>Start MapleScanner next to the game and walk the Free Market as usual. It reads each shop you open.</span></li>
+      <li><b>See the answer</b><span>A small card over the game puts one word beside every item, and says where a cheaper one was seen. It never takes focus from the game.</span></li>
+      <li><b>Everyone's list grows</b><span>What you scan goes into one shared price list, and you get prices from every other player's scans.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Installing</h2>
+    <p><a href="#download">Download the installer</a> and run it. Needs Windows 10 or 11. The app keeps itself up to date.</p>
+    <p>The installer isn't code-signed yet, so Windows shows "Windows protected your PC". Choose <kbd>More info</kbd>, then <kbd>Run anyway</kbd>.</p>
+    <p>MapleScanner only reads the picture of your game window, and sends the shop listings it read, never a picture. <a href="/about">About</a> has the details and the source code.</p>
+  </section>
+</main>
+<!--site-foot-->
+<script>
+// The button goes straight to the newest installer when GitHub says which it is. If that fails,
+// it stays a link to the releases page.
+fetch('https://api.github.com/repos/mirotol/MapleScanner/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+  .then(res => (res.ok ? res.json() : Promise.reject()))
+  .then(release => {
+    const installer = release.assets.find(a => /^MapleScanner-Setup-.*\.exe$/.test(a.name));
+    if (!installer) return;
+    document.getElementById('downloadButton').href = installer.browser_download_url;
+    document.getElementById('downloadNote').textContent = `Version ${release.tag_name.replace(/^v/, '')} · ${Math.round(installer.size / 1e6)} MB · Free and open source.`;
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>

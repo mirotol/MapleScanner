@@ -9,6 +9,10 @@ const WINDOWS = [['1h', HOUR_MS, 'hour'], ['6h', 6 * HOUR_MS, '6 hours'], ['24h'
 const TABS = [['all', 'All'], ['equip', 'Equip'], ['use', 'Use'], ['setup', 'Setup'], ['etc', 'Etc'], ['cash', 'Cash']];
 const STAT_LABELS = { attack: 'ATT', magic: 'M.ATT', wdef: 'W.Def', mdef: 'M.Def', str: 'STR', dex: 'DEX', int: 'INT', luk: 'LUK', hp: 'HP', mp: 'MP', accuracy: 'Acc', avoid: 'Avoid', speed: 'Speed', jump: 'Jump', crit: 'Crit', critDamage: 'Crit dmg', slots: 'Slots left' };
 
+// The website (site/) shows this same page to everyone, with its own wording where the app's
+// says "you".
+const SITE = globalThis.PUBLIC_SITE === true;
+
 let state = { items: [], aliases: {}, seen: {} };
 let facts = itemFacts({}); // NPC prices, gear slots and item ids, from osms-items.json
 let tab = 'all', group = null;
@@ -109,9 +113,9 @@ function renderList() {
   const shown = shownItems();
   if (!shown.length) {
     const here = searched.filter(inTab);
-    const empty = !rows.length ? 'No prices yet. Shops you and other players scan appear here for everyone.'
+    const empty = !rows.length ? (SITE ? 'No prices yet. Shops scanned with MapleScanner appear here for everyone.' : 'No prices yet. Shops you and other players scan appear here for everyone.')
       : minSure && here.length ? 'Every price here is ●○○ so far. Turn off Hide ●○○ to see them.'
-      : 'No item matches. Names come from shops you\'ve opened.';
+      : SITE ? 'No item matches. Only items seen in a shop are listed.' : 'No item matches. Names come from shops you\'ve opened.';
     $('list').innerHTML = `<tr><td class="empty">${empty}</td></tr>`;
     return;
   }
@@ -162,6 +166,7 @@ async function openCard(name) {
   card = { name, history, win: trend ? Math.max(win, 7 * DAY_MS) : win, show: trend ? 'all' : show, sortBy: null, filter: null, statsOpen: false, all: false };
   renderCard(true);
   if (!$('card').open) $('card').showModal();
+  window.history.replaceState(null, '', `?item=${encodeURIComponent(name)}`); // so the address is a link to this item
 }
 
 function statChips(name, stats) {
@@ -480,11 +485,14 @@ cardEl.addEventListener('change', e => {
   card.filter = filterOn(f) ? f : null;
   renderCard();
 });
-cardEl.addEventListener('close', () => { card = null; });
+cardEl.addEventListener('close', () => { card = null; window.history.replaceState(null, '', location.pathname); });
 
-api('osms-items.json').then(list => {
+api('osms-items.json').then(async list => {
   facts = itemFacts(list);
-  return reload();
+  await reload();
+  // A link to one item (?item=Iron Ore) opens its card
+  const linked = new URLSearchParams(location.search).get('item');
+  if (linked && itemOf(linked)) await openCard(linked);
 }).catch(err => say(err.message, true));
 
 window.reload = reload; // the Prices tab calls this each time it's opened

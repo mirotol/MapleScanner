@@ -70,6 +70,8 @@
   /* a header sorts the list by its column: it looks like the header, with an arrow when sorted */
   /* tucked 1px under the bar, which is drawn on top, so rounding at a zoomed text size leaves no gap */
   #list th { padding: 0; position: sticky; top: calc(var(--bar-h, 0px) - 1px); z-index: 1; background: var(--night); box-shadow: inset 0 -1px 0 var(--dusk); }
+  /* a phone scrolls the columns sideways in .wrap, where a stuck header would sit over the rows */
+  @media (max-width: 560px) { #list th { position: static; } }
   #list .colsort { font: inherit; text-transform: inherit; letter-spacing: inherit; color: inherit; box-shadow: none; border-radius: 0; width: 100%; text-align: inherit; padding: 6px 10px; white-space: nowrap; }
   #list .colsort:hover { background: none; color: var(--cloud); }
   #list th.sorted { color: var(--meso-text); }

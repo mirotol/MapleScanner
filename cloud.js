@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { SEEN_DAYS } = require('./pricing.js');
+const { SEEN_DAYS, marketState } = require('./pricing.js');
 const { listingRules } = require('./listing.js');
 
 // The live Worker (cloud/), on the app's own domain. CLOUD_URL overrides it, such as for the local
@@ -163,17 +163,7 @@ function createCloud({ url, key, itemList, fetch = globalThis.fetch, now = Date.
   // Without `full`, the items are the ones with recent listings, counted from those.
   async function state({ full = false } = {}) {
     if (!built || built.version !== version) {
-      const seen = {}, counts = new Map();
-      for (const l of listings.values()) {
-        (seen[l.name] ||= []).push({
-          u: facts.unitPrice(l.name, l.qty, l.price), s: l.seller, sold: !!l.sold, t: l.lastSeen, qty: l.qty, copies: l.copies,
-          channel: l.channel, map: l.map, room: l.room, shop: l.shop, stats: l.stats ? JSON.parse(l.stats) : null,
-        });
-        const c = counts.get(l.name) ?? { name: l.name, listings: 0, soldListings: 0, last: 0 };
-        c.listings++; c.soldListings += l.sold ? 1 : 0; c.last = Math.max(c.last, l.lastSeen);
-        counts.set(l.name, c);
-      }
-      built = { version, seen, recent: [...counts.values()].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })) };
+      built = { version, ...marketState(listings.values(), facts) };
     }
     const list = full ? await allItems().catch(() => built.recent) : built.recent;
     return { items: list, seen: built.seen, status: status() };

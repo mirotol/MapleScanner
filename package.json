@@ -14,7 +14,10 @@
     "items": "node tools/update-items.js",
     "dist": "electron-builder --win nsis --publish never",
     "cloud:dev": "wrangler dev --config cloud/wrangler.jsonc --port 8787",
-    "cloud:deploy": "wrangler deploy --config cloud/wrangler.jsonc"
+    "cloud:deploy": "wrangler deploy --config cloud/wrangler.jsonc",
+    "site:build": "node site/build.js",
+    "site:dev": "node site/build.js && wrangler dev --config site/wrangler.jsonc --port 8790",
+    "site:deploy": "node site/build.js && wrangler deploy --config site/wrangler.jsonc"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",

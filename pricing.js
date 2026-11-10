@@ -425,9 +425,10 @@ const agoText = ms => (ms < 6e4 ? 'just now' : ms < 36e5 ? `${Math.round(ms / 6e
 // An item's icon, which the local server downloads from OSMS once and keeps. Unknown items
 // and failed downloads keep an empty slot of the same size, so names stay in line. A broken
 // image with no alt text draws nothing. The address is whole, because the popped-out card is
-// an about:blank window, written into by this page.
+// an about:blank window, written into by this page. The website (site/) has no icon store, so
+// there every item gets the empty slot.
 const ICON_ORIGIN = typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? location.origin : '';
-const iconTag = id => (Number.isInteger(id) ? `<img class="icon" src="${ICON_ORIGIN}/icon/${id}.png" alt="" width="22" height="22" draggable="false">` : '<span class="icon"></span>');
+const iconTag = id => (Number.isInteger(id) && !globalThis.PUBLIC_SITE ? `<img class="icon" src="${ICON_ORIGIN}/icon/${id}.png" alt="" width="22" height="22" draggable="false">` : '<span class="icon"></span>');
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // An icon and a name, side by side in a .named box (theme.css), so a long name wraps beside the
@@ -497,6 +498,23 @@ function timeTicks(now, span) {
   return ticks.reverse();
 }
 
+// What the pages need to judge prices, from raw listings as the price server gives them:
+// seen is each item's votes for market.js, and recent the items listed, counted from these
+// listings. Shared by the app (cloud.js) and the website (site/site.js).
+function marketState(listings, facts) {
+  const seen = {}, counts = new Map();
+  for (const l of listings) {
+    (seen[l.name] ||= []).push({
+      u: facts.unitPrice(l.name, l.qty, l.price), s: l.seller, sold: !!l.sold, t: l.lastSeen, qty: l.qty, copies: l.copies,
+      channel: l.channel, map: l.map, room: l.room, shop: l.shop, stats: l.stats ? JSON.parse(l.stats) : null,
+    });
+    const c = counts.get(l.name) ?? { name: l.name, listings: 0, soldListings: 0, last: 0 };
+    c.listings++; c.soldListings += l.sold ? 1 : 0; c.last = Math.max(c.last, l.lastSeen);
+    counts.set(l.name, c);
+  }
+  return { seen, recent: [...counts.values()].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })) };
+}
+
 async function api(path, body) {
   const res = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
@@ -504,4 +522,4 @@ async function api(path, body) {
   return data;
 }
 
-if (typeof module !== 'undefined') module.exports = { SEEN_DAYS, norm, sim, fmt, chartRange, timeTicks, dateText, whole, sameItem, matchName, statsFit, completeName, startsName, knownTitle, placeRows, tooltipMoved, lineForTooltip, copyKey, mergeCopies, channelFollower, itemFacts, itemKind, passesStats, statBounds, iconTag, iconName, parseGearStats, gearState, STAT_NAMES, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText };
+if (typeof module !== 'undefined') module.exports = { SEEN_DAYS, marketState, norm, sim, fmt, chartRange, timeTicks, dateText, whole, sameItem, matchName, statsFit, completeName, startsName, knownTitle, placeRows, tooltipMoved, lineForTooltip, copyKey, mergeCopies, channelFollower, itemFacts, itemKind, passesStats, statBounds, iconTag, iconName, parseGearStats, gearState, STAT_NAMES, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText };
