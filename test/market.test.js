@@ -132,12 +132,6 @@ test('unknown sellers share one vote and never make a price firm', () => {
   assert.equal(m.firm, false);
 });
 
-test('your own price replaces the calculated one, and the range stays', () => {
-  const m = marketFor(honest, { now: NOW, mine: 90e3 });
-  assert.deepEqual([m.price, m.basis, m.firm, m.high], [90e3, 'yours', true, 120e3]);
-  assert.equal(marketFor([], { now: NOW, mine: 90e3 }).price, 90e3);
-});
-
 test('warns when one seller holds most of what is for sale', () => {
   const cornered = [vote(100, 'Alder'), vote(120, 'Birch'), vote(300, 'Corner'), vote(310, 'Corner'), vote(320, 'Corner'), vote(330, 'Corner')];
   assert.equal(at(cornered).mostlyOne, true);
@@ -255,9 +249,8 @@ test('gear compares by stats', () => {
   assert.deepEqual(closestGear(votes, a, { except: 'Alder' }).map(v => v.u), [25e3]);
 });
 
-test('a rail has nothing to show without a market or a range', () => {
+test('a rail has nothing to show without a market', () => {
   assert.equal(priceRail(100, null), null);
-  assert.equal(priceRail(100, marketFor([], { now: NOW, mine: 500 })), null);
 });
 
 test('a rail places the listing and the sold price between the lowest and highest seen', () => {
@@ -369,8 +362,6 @@ test('old data, one seller holding the stock, and mixed gear copies cap or lower
   assert.equal(usualSource(at(sales), { gear: true }).level, 2, 'a gear name mixes clean and scrolled copies');
   assert.match(usualSource(at(sales), { gear: true }).why, /Clean and scrolled copies are mixed/);
   assert.equal(usualSource(at(sales), { gear: true }).short, 'mixed condition');
-  const mine = usualSource(marketFor(honest, { now: NOW, mine: 90e3 }));
-  assert.deepEqual([mine.level, mine.line], [0, 'set by you']);
 });
 
 test('an ask later seen sold is gone, so the card lists it once, as a sale', () => {

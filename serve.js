@@ -184,10 +184,6 @@ function start({ port = 0, dbFile, debugDir, download }) {
   };
   const writes = {
     '/api/sightings': body => db.addSightings(body.rows),
-    '/api/item': body => db.updateItem(body),
-    '/api/item/rename': body => db.renameItem(body.name, body.to),
-    '/api/item/delete': body => db.deleteItem(body.name),
-    '/api/sighting/delete': body => db.deleteSighting(body.id),
     '/api/settings': body => saveSettings(settingsFile, body),
   };
 

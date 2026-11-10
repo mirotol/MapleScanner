@@ -87,11 +87,10 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
 
   // votes: [{ u: price per item, s: seller, sold, t: time }], one for each distinct listing.
   // except: the seller being judged, who can't vouch for their own price.
-  // mine: the player's own price for this item, which replaces the calculated one.
-  function marketFor(votes, { except = null, now = Date.now(), mine = null } = {}) {
+  function marketFor(votes, { except = null, now = Date.now() } = {}) {
     const others = (votes || []).filter(v => !excepted(v, except));
     const { days, picks } = pickWindow(others, now);
-    if (!picks.length && !mine) return null;
+    if (!picks.length) return null;
 
     const groups = bySeller(picks);
     const asks = groups.map(standingAsk).filter(Boolean).map(v => v.u);
@@ -112,10 +111,10 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
       ? sellersSold.filter(g => g.known).map(g => middle(g.votes.filter(v => v.sold).map(v => v.u)))
       : groups.filter(g => g.known).map(standingAsk).filter(Boolean).map(v => v.u));
     const market = {
-      price: picks.length ? (useSold ? middle(solds) : lowerQuartile(asks)) : null,
+      price: useSold ? middle(solds) : lowerQuartile(asks),
       basis: useSold ? 'sold' : 'asking',
       firm: soldIsSolid || (!useSold && askedBy >= FIRM_SELLERS),
-      low: prices.length ? Math.min(...prices) : null, high: prices.length ? Math.max(...prices) : null,
+      low: Math.min(...prices), high: Math.max(...prices),
       sellers: groups.filter(g => g.known).length,
       from: useSold ? soldBy : askedBy, // the named sellers the price comes from
       sold: solds.length ? middle(solds) : null,
@@ -127,16 +126,16 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
       // the upper quarter over the lower quarter of those prices, so one troll price can't widen it
       spread: theirs.length < 2 ? 1 : theirs[theirs.length - 1 - ((theirs.length - 1) >> 2)] / theirs[(theirs.length - 1) >> 2],
     };
-    return mine ? { ...market, price: mine, basis: 'yours', firm: true } : market;
+    return market;
   }
 
   const sellerText = n => `${n} seller${n === 1 ? '' : 's'}`;
   const rangeText = m => (m.low === m.high ? fmt(m.low) : `${fmt(m.low)}–${fmt(m.high)}`);
 
   function reasonText(m) {
-    const against = { sold: 'sold', asking: 'asking', yours: 'your price' }[m.basis];
+    const against = { sold: 'sold', asking: 'asking' }[m.basis];
     const parts = [`vs ${fmt(m.price)} ${against}`];
-    if (m.basis !== 'yours') parts.push(sellerText(m.sellers), `${m.days} days`);
+    parts.push(sellerText(m.sellers), `${m.days} days`);
     if (m.mostlyOne) parts.push('mostly 1 seller');
     return parts.join(', ');
   }
@@ -157,7 +156,7 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
   }
 
   // The usual price in plain words, for a line on the stall card.
-  const basisText = m => `${{ sold: 'Sold for', asking: 'Others ask', yours: 'Your price' }[m.basis]} ${fmt(m.price)}`;
+  const basisText = m => `${{ sold: 'Sold for', asking: 'Others ask' }[m.basis]} ${fmt(m.price)}`;
 
   // How far to trust a usual price, for the Prices page's Price confidence column: a level from
   // 1 (Thin) to 3 (Solid) drawn as dots, a short label naming what decided it ("1 seller",
@@ -166,7 +165,6 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
   // exists to measure a percentage against. Only what costs a faker something raises it: more
   // named sellers, or real sales on more than one day. gear: clean and scrolled copies are mixed.
   function usualSource(m, { gear = false } = {}) {
-    if (m.basis === 'yours') return { line: 'set by you', level: 0, short: 'your price', why: 'The price you set for this item.' };
     const why = [];
     let level = 0, short = '';
     // A rule that changes the level also gives the label, so the label is what decided it

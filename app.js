@@ -83,7 +83,7 @@ async function migrateBrowserData() {
   localStorage.removeItem(OLD_KEYS.npc);
 }
 
-// The real name of a read when that's clear, otherwise null. A name the user fixed comes first.
+// The real name of a read when that's clear, otherwise null. A misread already matched to a real name comes first.
 function knownName(name, cut = isCutOff(name)) {
   const alias = cut ? null : aliases[norm(name)];
   if (alias && catalog.has(alias)) return alias;
@@ -97,7 +97,7 @@ const isGear = name => facts.slots(name) != null;
 // The shop being looked at, so its seller's own listings are left out, even ones saved under a
 // misread of their name, which only count as theirs on the same stall (sameSeller in market.js).
 const thisShop = seller => (seller ? { s: seller, shop: session?.title ?? null, channel, map: place?.map ?? null, room: place?.room ?? null } : null);
-const marketOf = (votes, name, seller) => marketFor(votes, { except: thisShop(seller), mine: catalog.get(name)?.fm });
+const marketOf = (votes, name, seller) => marketFor(votes, { except: thisShop(seller) });
 
 // The listings a row can fairly be compared with: gear only against the same stats.
 function comparable(name, stats) {

@@ -258,31 +258,6 @@ test('a database from before shops had a location opens and keeps its data', () 
   fs.rmSync(dir, { recursive: true });
 });
 
-test('moving an item read as the wrong one merges its listings and remembers the misread', () => {
-  const db = openDb(':memory:');
-  db.addSightings([shop('Crossbow', 'a', 100), shop('Battle Crossbow', 'b', 110), shop('Battle Crossbow', 'a', 100)]);
-  db.renameItem('Battle Crossbow', 'crossbow');
-  const state = db.state();
-  assert.deepEqual(state.items.map(i => i.name), ['Crossbow']);
-  assert.equal(state.items[0].listings, 2);
-  assert.equal(state.aliases['battle crossbow'], 'Crossbow');
-});
-
-test('moving to an item not yet saved keeps the listings', () => {
-  const db = openDb(':memory:');
-  db.addSightings([shop('Battle Crossbow', 'a', 100)]);
-  db.renameItem('Battle Crossbow', 'Crossbow');
-  assert.equal(db.history('Crossbow').length, 1);
-  assert.equal(db.state().aliases['battle crossbow'], 'Crossbow');
-});
-
-test('an item can only be moved to a real item', () => {
-  const db = openDb(':memory:');
-  db.addSightings([shop('Crossbow', 'a', 100)]);
-  assert.throws(() => db.renameItem('Crossbow', 'Crosshow'), /not an item in the game/);
-  assert.deepEqual(db.state().items.map(i => i.name), ['Crossbow']);
-});
-
 test('NPC prices are not taken from the screen', () => {
   const db = openDb(':memory:');
   assert.throws(() => db.addSightings([{ list: 'npcBuys', name: 'War Bow', qty: 1, price: 1250 }]));
@@ -687,15 +662,12 @@ test('a stat a scroll added, like Jump on shoes, still fits', () => {
   assert.equal(gearState(stats, facts.slots('Blue Moon Shoes'), facts.base('Blue Moon Shoes')), '4 of 5 slots left, +2 jump');
 });
 
-test('gear stats survive seeing the listing again and merging', () => {
+test('gear stats survive seeing the listing again', () => {
   const stats = { slots: 5, attack: 30, str: 4 };
   const a = openDb(':memory:');
   a.addSightings([shop('Crossbow', 'a', 100), { ...shop('Crossbow', 'a', 100), stats }]);
   a.addSightings([shop('Crossbow', 'a', 100)]);
   assert.deepEqual(a.state().seen.Crossbow[0].stats, stats);
-  a.addSightings([shop('Battle Crossbow', 'b', 100, { stats })]);
-  a.renameItem('Battle Crossbow', 'Crossbow');
-  assert.ok(a.state().seen.Crossbow.every(v => v.stats?.str === 4));
 });
 
 test("only real items are saved, under the item list's spelling, and the rest of a scan still is", () => {
@@ -755,15 +727,11 @@ test('a different title or a different seller is a different shop', () => {
   assert.ok(!isSameShop(visit(['NX'], ['Bistu']), { title: 'NX', seller: 'Fennekin' }));
 });
 
-test('a listing keeps its shop title through saving and merging', () => {
+test('a listing keeps its shop title when seen again', () => {
   const a = openDb(':memory:');
   a.addSightings([{ ...shop('Battle Crossbow', 'iNext', 900), shop: 'The Good Stuff' }]);
   a.addSightings([shop('Battle Crossbow', 'iNext', 900)]); // seen again with the title unread
   assert.equal(a.history('Battle Crossbow')[0].shop, 'The Good Stuff');
-  a.addSightings([shop('Crossbow', 'x', 5)]);
-  a.renameItem('Battle Crossbow', 'Crossbow');
-  const listing = a.history('Crossbow').find(h => h.seller === 'iNext');
-  assert.equal(listing.shop, 'The Good Stuff');
   const c = openDb(':memory:');
   c.addSightings([{ ...shop('Red Potion', '', 50), shop: 'x'.repeat(81) }]);
   assert.equal(c.history('Red Potion')[0].shop, null);

@@ -183,18 +183,6 @@
   .stat .up { color: var(--exp); font-weight: 700; }
   .stat .down { color: var(--hp); font-weight: 700; }
   .more { margin-top: 10px; }
-  .remove { display: none; }
-  .fixing .remove { display: table-cell; }
-  .remove button { padding: 3px 9px; font-size: 12.5px; }
-
-  .fix { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--dusk); }
-  .fix summary { cursor: pointer; color: var(--mist); font-size: 13px; }
-  .fix .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 10px; }
-  .fix .controls .spacer { flex: 1; }
-  .fix .controls button { padding: 6px 11px; }
-  .fix .help { color: var(--mist); font-size: 13px; margin-top: 6px; }
-  .field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--mist); }
-  .field input[type=number] { width: 120px; }
 </style>
 </head>
 <body>
@@ -203,7 +191,7 @@
     <div class="topbar-row">
       <input id="search" type="search" placeholder="Search items..." aria-label="Search items">
       <div class="chips tabs" id="tabs"></div>
-      <label class="surepick level1" title="Hides prices with low confidence: under 3 sellers, or sellers far apart. A price you set yourself stays.">Hide <span class="dots" role="img" aria-label="low confidence"><i class="on"></i><i></i><i></i></span><input type="checkbox" role="switch" id="hideThin" aria-label="Hide prices with low confidence"></label>
+      <label class="surepick level1" title="Hides prices with low confidence: under 3 sellers, or sellers far apart.">Hide <span class="dots" role="img" aria-label="low confidence"><i class="on"></i><i></i><i></i></span><input type="checkbox" role="switch" id="hideThin" aria-label="Hide prices with low confidence"></label>
     </div>
     <div class="chips groups" id="groups"></div>
     <p class="note" id="note" role="status"></p>
@@ -211,14 +199,6 @@
   <div class="wrap"><table id="list"></table></div>
 </main>
 <dialog class="card" id="card" aria-label="Item prices"></dialog>
-<dialog id="confirmDelete">
-  <form method="dialog">
-    <h2 id="deleteTitle"></h2>
-    <p id="deleteText"></p>
-    <div class="dialog-actions"><button value="">Keep it</button><button value="delete" class="danger solid">Delete item</button></div>
-  </form>
-</dialog>
-<datalist id="names"></datalist>
 <script src="pricing.js"></script>
 <script src="market.js"></script>
 <script src="prices.js"></script>

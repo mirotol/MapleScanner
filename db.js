@@ -169,7 +169,7 @@ function openDb(file, seedFile) {
 
     // Everything the pages need to judge prices.
     state() {
-      const items = db.prepare(`SELECT i.name, i.fm,
+      const items = db.prepare(`SELECT i.name,
           COUNT(s.id) listings, COALESCE(SUM(s.sold), 0) soldListings, MAX(s.last_seen) last
         FROM items i LEFT JOIN sightings s ON s.item_id = i.id GROUP BY i.id ORDER BY i.name COLLATE NOCASE`).all();
       const aliases = {};
@@ -185,44 +185,6 @@ function openDb(file, seedFile) {
       const item = mustFind(name);
       return db.prepare(`SELECT id, seller, qty, price, sold, copies, first_seen firstSeen, last_seen lastSeen, channel, map, room, shop, stats
         FROM sightings WHERE item_id = ? ORDER BY last_seen DESC`).all(item.id);
-    },
-
-    updateItem({ name, fm }) {
-      const item = mustFind(name);
-      const price = (value, old) => {
-        if (value === undefined) return old;
-        if (value === null || isPositive(value)) return value;
-        throw new BadInput('Prices must be whole numbers above zero.');
-      };
-      db.prepare('UPDATE items SET fm = ? WHERE id = ?').run(price(fm, item.fm), item.id);
-      return { ok: true };
-    },
-
-    // Moves an item that was read as the wrong one into the right one, which must be a real
-    // item. The old name is remembered as a misread, so the next read goes to the right one.
-    renameItem(name, to) {
-      const from = mustFind(name);
-      if (!isName(to)) throw new BadInput('Type the right item name.');
-      const real = realName(to);
-      if (!real) throw new BadInput(`${to.trim()} is not an item in the game.`);
-      if (real !== from.name) tx(() => moveItem(from, real));
-      return { ok: true };
-    },
-
-    deleteItem(name) {
-      const item = mustFind(name);
-      tx(() => {
-        db.prepare('DELETE FROM sightings WHERE item_id = ?').run(item.id);
-        db.prepare('DELETE FROM aliases WHERE item_id = ?').run(item.id);
-        db.prepare('DELETE FROM items WHERE id = ?').run(item.id);
-      });
-      return { ok: true };
-    },
-
-    deleteSighting(id) {
-      if (!isPositive(id)) throw new BadInput('That listing is not valid.');
-      db.prepare('DELETE FROM sightings WHERE id = ?').run(id);
-      return { ok: true };
     },
   };
 }

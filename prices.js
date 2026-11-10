@@ -12,7 +12,7 @@ const STAT_LABELS = { attack: 'ATT', magic: 'M.ATT', wdef: 'W.Def', mdef: 'M.Def
 let state = { items: [], aliases: {}, seen: {} };
 let facts = itemFacts({}); // NPC prices, gear slots and item ids, from osms-items.json
 let tab = 'all', group = null;
-let card = null; // the open item: { name, history, win, show, sortBy, filter, statsOpen, all, fixing }
+let card = null; // the open item: { name, history, win, show, sortBy, filter, statsOpen, all }
 
 const isGear = name => facts.slots(name) != null;
 const itemOf = name => state.items.find(i => i.name === name);
@@ -39,7 +39,7 @@ function matchRank(name, query) {
 // Gear too: a name mixes clean and scrolled copies, which the card's Stats filter separates.
 function summarise(item) {
   const votes = state.seen[item.name];
-  const usual = marketFor(votes, { mine: item.fm });
+  const usual = marketFor(votes);
   return {
     ...item,
     kind: facts.kind(item.name),
@@ -56,7 +56,7 @@ let rows = [];
 const COLUMNS = [
   { key: 'name', label: 'Item', value: i => i.name, dir: 1 },
   { key: 'usual', label: 'Usual price', cls: 'num', value: i => i.usual?.price, dir: -1 },
-  // the surest first, and among equals the one more sellers stand behind; your own price goes last
+  // the surest first, and among equals the one more sellers stand behind
   { key: 'sure', label: 'Price confidence', cls: 'sure', value: i => (i.sure?.level ? i.sure.level + Math.min(i.usual.from, 999) / 1000 : null), dir: -1 },
   { key: 'low', label: 'Cheapest ask, 24 h', cls: 'num', value: i => i.low?.u, dir: 1 },
   { key: 'listed', label: 'Listed', cls: 'num wide', value: i => i.listings - i.soldListings, dir: -1 },
@@ -68,9 +68,9 @@ let sort = { key: 'last', dir: -1 };
 // The lowest price confidence to show, 0 for any. One switch, Hide ●○○, makes it 2, like poe.ninja's
 // "Show low confidence": a switch reads as a filter, where three choices beside the tabs read as
 // more tabs. Most items are Thin (69% of the real list on Nov 9), so it starts off. Sorting by the
-// column puts ●●● first. A price you set yourself always shows: it's the one you trust.
+// column puts ●●● first.
 let minSure = 0;
-const sureEnough = (i, min = minSure) => !min || i.sure?.level === 0 || (i.sure?.level ?? 0) >= min;
+const sureEnough = (i, min = minSure) => !min || (i.sure?.level ?? 0) >= min;
 const inTab = i => (tab === 'all' || i.kind.tab === tab) && (!group || i.kind.group === group);
 
 function shownItems() {
@@ -159,7 +159,7 @@ async function openCard(name) {
   const show = votes.some(v => showing(v, 'listed')) ? 'listed' : 'all';
   const win = WINDOWS.slice(2).find(([, ms]) => votes.some(v => showing(v, show) && Date.now() - v.t <= ms))?.[1] ?? DAY_MS;
   const trend = chartView === 'trend';
-  card = { name, history, win: trend ? Math.max(win, 7 * DAY_MS) : win, show: trend ? 'all' : show, sortBy: null, filter: null, statsOpen: false, all: false, fixing: false };
+  card = { name, history, win: trend ? Math.max(win, 7 * DAY_MS) : win, show: trend ? 'all' : show, sortBy: null, filter: null, statsOpen: false, all: false };
   renderCard(true);
   if (!$('card').open) $('card').showModal();
 }
@@ -272,7 +272,7 @@ function statsHtml(name, votes) {
 function rowsHtml(name, list, order) {
   const gear = isGear(name), set = facts.recharges(name);
   const visible = card.all ? list : list.slice(0, SHOW_ROWS);
-  const head = `<tr><th class="sortable${order === 'when' ? ' sorted' : ''}" data-sort="when">When${order === 'when' ? ' ↓' : ''}</th><th>Where</th><th>Seller</th>${gear ? '<th>Stats</th>' : ''}<th class="num sortable${order === 'price' ? ' sorted' : ''}" data-sort="price">Price${order === 'price' ? ' ↑' : ''}</th><th class="remove"></th></tr>`;
+  const head = `<tr><th class="sortable${order === 'when' ? ' sorted' : ''}" data-sort="when">When${order === 'when' ? ' ↓' : ''}</th><th>Where</th><th>Seller</th>${gear ? '<th>Stats</th>' : ''}<th class="num sortable${order === 'price' ? ' sorted' : ''}" data-sort="price">Price${order === 'price' ? ' ↑' : ''}</th></tr>`;
   const body = visible.map(v => {
     const each = set ? `1 set of ${v.qty.toLocaleString('en-US')}` : !gear && v.qty > 1 ? `each, ${v.qty.toLocaleString('en-US')} for ${fmt(v.price)}` : '';
     const copies = v.copies > 1 ? `${v.copies} copies` : '';
@@ -282,20 +282,18 @@ function rowsHtml(name, list, order) {
       <td class="where${whereText(v) ? '' : ' unknown'}">${esc(whereText(v)) || 'not known'}</td>
       <td class="seller">${esc(v.s || 'Unknown')}${v.shop ? `<small title="${esc(v.shop)}">${esc(v.shop)}</small>` : ''}</td>
       ${gear ? `<td>${statChips(name, v.stats)}</td>` : ''}
-      <td class="num price">${v.sold ? '<span class="badge">sold</span>' : ''}${fmt(v.u)}${under ? `<small>${under}</small>` : ''}</td>
-      <td class="num remove"><button class="danger" data-do="removeListing" data-id="${v.id}" aria-label="Remove this listing">Remove</button></td></tr>`;
+      <td class="num price">${v.sold ? '<span class="badge">sold</span>' : ''}${fmt(v.u)}${under ? `<small>${under}</small>` : ''}</td></tr>`;
   }).join('');
   const more = list.length > visible.length ? `<button class="more" data-do="showAll">Show all ${list.length.toLocaleString('en-US')}</button>` : '';
   return `<div class="wrap"><table class="rows">${head}${body}</table></div>${more}`;
 }
 
 function cardHtml() {
-  const { name, win, show, filter } = card, item = itemOf(name);
+  const { name, win, show, filter } = card;
   const gear = isGear(name), npc = facts.npc(name), kind = facts.kind(name), set = isSet(name);
   const all = votesOf(name, card.history);
   const kept = all.filter(v => passesStats(v.stats, filter, facts.slots(name)));
-  // Your own price is for the name, so it gives way while Stats narrows the copies
-  const usual = marketFor(kept, { mine: filterOn(filter) ? null : item?.fm });
+  const usual = marketFor(kept);
   const now = Date.now(), inWin = kept.filter(v => now - v.t <= win);
   const winWords = WINDOWS.find(([, ms]) => ms === win)[2];
   const inLast = win === Infinity ? 'ever' : `last ${winWords}`;
@@ -310,7 +308,7 @@ function cardHtml() {
   const src = usual?.price != null ? usualSource(usual, { gear: gear && !filterOn(filter) }) : null;
   const usualFig = src
     ? `<div class="fig main"><span>Usual price, ${set ? 'a set' : 'each'}</span><b>${fmt(usual.price)}</b><span>${
-      usual.basis === 'yours' ? 'set by you' : `${usual.from ? plural(usual.from, 'seller') : 'sellers not read'} · ${usual.days} days`}${gear && !filterOn(filter) ? ' · every condition' : ''}</span></div>`
+      usual.from ? plural(usual.from, 'seller') : 'sellers not read'} · ${usual.days} days${gear && !filterOn(filter) ? ' · every condition' : ''}</span></div>`
     : '<div class="fig main"><span>Usual price</span><b class="dim">not enough yet</b></div>';
   // The card is where a curious player looks, so the reasoning is written out, not on a hover
   const sureFig = src?.level
@@ -337,7 +335,7 @@ function cardHtml() {
       <div class="figures">${figures}</div>
       <button class="close" data-do="close" aria-label="Close">×</button>
     </div>
-    <div class="card-body${card.fixing ? ' fixing' : ''}">
+    <div class="card-body">
       <p class="note card-note" role="status"></p>
       <div class="card-controls">
         <div class="seg" role="group" aria-label="Time">${WINDOWS.map(([label, ms]) => `<button class="${ms === win ? 'on' : ''}" data-win="${ms}">${label}</button>`).join('')}</div>
@@ -349,19 +347,6 @@ function cardHtml() {
       <div class="chart">${chartView === 'trend' ? trendHtml(name, kept, usual, win, show) : chartHtml(name, list, usual, win)}</div>
       <div class="rows-head"><h3>${heading}</h3><span>${plural(list.length, 'listing')}, ${inLast}${order === 'price' ? ', cheapest first' : ', newest first'}</span></div>
       ${list.length ? rowsHtml(name, list, order) : '<p class="quiet">Nothing in this time and these filters.</p>'}
-      <details class="fix"${card.fixing ? ' open' : ''}><summary>Fix this item</summary>
-        <p class="help">Each listing now has a Remove button.</p>
-        <div class="controls">
-          <label class="field">Read as the wrong item? Move it to
-            <input id="rename" list="names" value="${esc(name)}" aria-label="The right item"></label>
-          <button data-do="rename">Apply</button>
-          <span class="spacer"></span>
-          <label class="field">Your FM price (replaces the calculated one)
-            <input id="fm" type="number" min="1" step="1" value="${item?.fm ?? ''}"></label>
-          <button data-do="savePrices">Save</button>
-        </div>
-        <div class="controls"><button class="danger" data-do="deleteItem">Delete this item</button></div>
-      </details>
     </div>`;
 }
 
@@ -375,7 +360,7 @@ function renderCard(fresh = false) {
 
 async function reload() {
   state = await api('/api/state');
-  rows = state.items.filter(i => i.listings > 0 || i.fm != null).map(summarise);
+  rows = state.items.filter(i => i.listings > 0).map(summarise);
   if (card && !itemOf(card.name)) closeCard();
   if (card) { card.history = await api(`/api/history?name=${encodeURIComponent(card.name)}`); renderCard(); }
   renderList();
@@ -384,17 +369,6 @@ async function reload() {
 function closeCard() {
   card = null;
   if ($('card').open) $('card').close();
-}
-
-// Runs a change, then shows the result or what went wrong.
-async function act(work, done) {
-  try {
-    await work();
-    await reload();
-    say(done);
-  } catch (err) {
-    say(err.message, true);
-  }
 }
 
 // A result fades after a while. An error stays until the next action. With the card open,
@@ -407,34 +381,11 @@ function say(text, stays = false) {
   if (!stays) noteTimer = setTimeout(() => { for (const n of [$('note'), $('card').querySelector('.card-note')].filter(Boolean)) n.textContent = ''; }, NOTE_MS);
 }
 
-const priceInput = id => { const v = $(id).value.trim(); return v === '' ? null : Number(v); };
-
 const actions = {
   close: closeCard,
   toggleStats() { card.statsOpen = !card.statsOpen; renderCard(); },
   clearStats() { card.filter = null; renderCard(); },
   showAll() { card.all = true; renderCard(); },
-  // The server saves it under the item list's spelling, so that's the name to open after.
-  rename() {
-    const from = card.name, to = $('rename').value.trim();
-    if (!to || to === from) return;
-    const real = realNameOf(to);
-    if (real) card.name = real;
-    return act(() => api('/api/item/rename', { name: from, to }), `Moved ${from} to ${card.name}.`);
-  },
-  savePrices: () => act(() => api('/api/item', { name: card.name, fm: priceInput('fm') }), 'Saved.'),
-  removeListing: el => act(() => api('/api/sighting/delete', { id: Number(el.dataset.id) }), 'Listing removed.'),
-  deleteItem() {
-    const name = card.name, item = itemOf(name);
-    const dialog = $('confirmDelete');
-    $('deleteTitle').textContent = `Delete ${name}?`;
-    $('deleteText').textContent = `Its ${plural(item.listings, 'listing')} go too, and prices for it start over. This can't be undone.`;
-    dialog.onclose = () => {
-      if (dialog.returnValue === 'delete') act(async () => { await api('/api/item/delete', { name }); closeCard(); }, `Deleted ${name}.`);
-    };
-    dialog.returnValue = '';
-    dialog.showModal();
-  },
 };
 
 // ---------- events ----------
@@ -524,22 +475,10 @@ cardEl.addEventListener('change', e => {
   card.filter = filterOn(f) ? f : null;
   renderCard();
 });
-// The Remove buttons show only while fixing. A toggle doesn't bubble, so it's caught on the way down.
-cardEl.addEventListener('toggle', e => {
-  if (!e.target.matches('details.fix')) return;
-  card.fixing = e.target.open;
-  cardEl.querySelector('.card-body').classList.toggle('fixing', card.fixing);
-}, true);
 cardEl.addEventListener('close', () => { card = null; });
 
-// Every item in the game, by normalised name. Only these can be moved to.
-let realNames = new Map();
-const realNameOf = name => realNames.get(norm(name)) ?? null;
-
 api('osms-items.json').then(list => {
-  realNames = new Map(list.names.map(name => [norm(name), name]));
   facts = itemFacts(list);
-  $('names').innerHTML = list.names.map(name => `<option value="${esc(name)}">`).join('');
   return reload();
 }).catch(err => say(err.message, true));
 
