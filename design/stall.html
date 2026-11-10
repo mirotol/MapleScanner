@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stall card mockup</title>
+<!-- Design proposal, built into the app on Nov 8. "Now" is the card before that: its styles are kept below, and the markup is what app.js wrote then.
+     "Proposed" is drawn here with the same colour tokens. The game behind is test/earrings-hover.webp. -->
+<link rel="stylesheet" href="../theme.css">
+<style>
+  html, body { background: #3a3a3e; }
+  body { color: #f2f2f2; padding: 24px 20px 60px; }
+  .page { max-width: 1060px; margin: 0 auto; }
+  .page > header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; margin-bottom: 8px; }
+  .page h1 { font-size: 24px; }
+  .rules { color: #cfcfd4; font-size: 14px; margin: 6px 0 0; padding-left: 20px; }
+  .rules li { margin: 2px 0; }
+  .size { display: flex; gap: 6px; align-items: center; font-size: 13px; color: #cfcfd4; }
+  .size button { color: #f2f2f2; box-shadow: inset 0 0 0 1px #6a6a70; padding: 5px 10px; }
+  .size button:hover { background: #4a4a50; }
+  .size button.on { background: #f2f2f2; color: #2a2a2e; }
+
+  section { margin-top: 36px; }
+  section > h2 { font-size: 19px; margin-bottom: 10px; color: #fff; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .col .which { font: 600 13px/1 var(--text); text-transform: uppercase; letter-spacing: .06em; color: #b9b9c0; margin-bottom: 8px; }
+  .col.new .which { color: #ffd38a; }
+  /* The game behind the card, at native size, so contrast and size are real */
+  .stage { --z: 1; position: relative; height: calc(var(--h, 470px) * var(--z)); border-radius: 8px; overflow: hidden;
+    background: #000 url(../test/earrings-hover.webp) -10px -96px no-repeat; padding: 18px 20px; }
+  .stage > * { zoom: var(--z); }
+  .changes { color: #dcdce2; font-size: 13.5px; margin: 10px 0 0; padding-left: 18px; }
+  .changes li { margin: 3px 0; }
+  @media (max-width: 820px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+
+  /* "Now": the real card, with the pop-out's buttons and its own height */
+  .stall.pip { width: 340px; height: auto; border-radius: 10px; box-shadow: 0 0 0 1px var(--ridge); }
+
+  /* The card as it was before the proposal was built (Nov 8), since theme.css has moved on */
+  .waiting { padding: 2px 12px 12px; color: var(--mist); font-size: 13px; }
+  
+  .shop { padding: 2px 12px 8px; }
+  .shop h3 { font-size: 19px; line-height: 1.2; overflow-wrap: anywhere; }
+  .shop p { color: var(--mist); font-size: 13px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .shop p b { color: var(--exp); font-weight: 600; }
+  .rows { padding: 0 12px 6px; }
+  .row { padding: 7px 0 8px; border-top: 1px solid var(--dusk); }
+  .line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .name { min-width: 0; overflow-wrap: anywhere; }
+  .side { display: flex; align-items: baseline; gap: 8px; flex: none; }
+  .price { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .under { display: flex; align-items: center; gap: 10px; margin-top: 3px; min-height: 18px; }
+  .why { color: var(--mist); font-size: 12px; margin-top: 2px; }
+  .under .why { flex: 1; min-width: 0; margin: 0; }
+  .walk { color: var(--sky); font-size: 12.5px; margin-top: 3px; font-weight: 500; }
+  .row.sold { color: var(--mist); }
+  .row.sold .price { font-weight: 500; text-decoration: line-through; }
+  
+  /* Item card: the item being hovered in the game */
+  .item-card { --under: var(--dusk); margin: 0 8px 8px; padding: 10px 12px 12px; background: var(--dusk); border-radius: 8px; box-shadow: inset 0 1px 0 var(--ridge); }
+  .item-card h4 { font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; }
+  .item-card .state { color: var(--mist); font-size: 13px; }
+  .item-card .rail { margin-top: 8px; }
+  .ends { display: flex; justify-content: space-between; color: var(--mist); font-size: 12px; margin-bottom: 6px; }
+  .fact { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; font-size: 13px; }
+  .fact span:first-child { color: var(--mist); min-width: 0; }
+  .fact span:last-child { font-weight: 700; white-space: nowrap; }
+  .item-card .group { color: var(--mist); font-size: 12px; margin-top: 8px; }
+
+  /* ---------- Proposed ---------- */
+  .v2 { width: 340px; background: var(--night); color: var(--cloud); border-radius: 10px; box-shadow: 0 0 0 1px var(--ridge); overflow: hidden; }
+  .v2 .bar button { display: grid; }
+  .v2 .bar.bad { background: var(--ember); color: var(--on-bright); }
+  .v2 .bar.bad .live { background: var(--on-bright); }
+  .v2 .bar.bad button { color: var(--on-bright); }
+  .v2 .bar.bad .channel.unknown { background: var(--on-bright); color: var(--ember); }
+  .v2 .bar b { color: var(--cloud); font-weight: 700; }
+  .v2 .bar .deals { color: var(--exp); font-weight: 700; }
+
+  .head { padding: 0 12px 8px; }
+  .head .who { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .head h3 { font-size: 19px; line-height: 1.2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .head h3.dim { color: var(--mist); font-size: 16px; font-weight: 500; }
+  .head p { color: var(--mist); font-size: 13px; }
+  .count { font: 600 13px/18px var(--display); color: var(--on-bright); background: var(--exp); padding: 0 7px; border-radius: 4px; flex: none; }
+
+  .rows2 { border-top: 1px solid var(--dusk); }
+  .r { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline; padding: 6px 12px; border-bottom: 1px solid var(--dusk); }
+  .r .v { font: 600 13px/19px var(--display); text-align: center; border-radius: 4px; white-space: nowrap; }
+  .r .v.deal { background: var(--exp); color: var(--on-bright); }
+  .r .v.warn { background: var(--ember); color: var(--on-bright); }
+  .r .v.over { color: var(--hp); }
+  .r .v.quiet { color: var(--mist); font-weight: 500; }
+  .r .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r .p { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .r .p small { font-weight: 500; font-size: 12px; color: var(--mist); }
+  .r .sub { grid-column: 2 / 4; color: var(--mist); font-size: 12.5px; line-height: 1.35; }
+  .r .go { grid-column: 2 / 4; color: var(--sky); font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+  .r.sold { color: var(--mist); }
+  .r.sold .p { font-weight: 500; text-decoration: line-through; }
+  .group { padding: 8px 12px 2px; color: var(--mist); font-size: 12px; }
+
+  /* The hovered row opens where it is, so nothing else moves */
+  .r.open { background: var(--dusk); box-shadow: inset 3px 0 0 var(--sky); --under: var(--dusk); }
+  .facts { grid-column: 2 / 4; margin-top: 4px; }
+  .facts .state { color: var(--mist); font-size: 12.5px; margin-bottom: 2px; }
+  .facts .fact { font-size: 13px; padding: 1px 0; }
+  .facts .fact em { font-style: normal; color: var(--sky); font-weight: 600; }
+
+  /* An item that isn't in this shop: your own, in a fixed slot under the list */
+  .mine { margin: 8px; padding: 8px 10px; background: var(--dusk); border-radius: 8px; }
+  .mine .label { color: var(--mist); font-size: 12px; }
+  .mine h4 { font-size: 15px; line-height: 1.25; margin-bottom: 2px; }
+
+  .stale { opacity: .45; }
+  .hint { padding: 8px 12px 10px; color: var(--mist); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <h1>Stall card: now and proposed</h1>
+      <ul class="rules">
+        <li>Read the left column from top to bottom: each row's answer is there.</li>
+        <li>Each row takes one line, plus a second only when there's something to act on.</li>
+        <li>Hovering opens the row in place, so nothing else moves.</li>
+        <li>Plain words instead of charts.</li>
+      </ul>
+    </div>
+    <div class="size" role="group" aria-label="Card size">
+      Card size
+      <button class="on" data-z="1">1920 wide game</button>
+      <button data-z="1.27">2560 wide, matched to the game</button>
+    </div>
+  </header>
+
+  <!-- ===================================================== A -->
+  <section>
+    <h2>A shop is open</h2>
+    <div class="pair">
+      <div class="col">
+        <p class="which">Now</p>
+        <div class="stage">
+          <div class="stall pip">
+            <div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.30</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="list">
+              <div class="shop"><h3>SHOP</h3><p><span>by DagTheGun11</span><span>CH.30 FM 9</span><span>4 for sale, 1 sold</span><b>1 deal</b></p></div>
+              <div class="rows">
+                <div class="row"><div class="line"><span class="name">Red Whip</span><span class="price">280,000</span></div>
+                  <div class="under"><div class="rail deal"><span class="sold-at" style="left:58%"></span><span class="here" style="left:34%"></span></div><span class="tag deal">deal &#8722;38%</span></div>
+                  <div class="why">vs 450K sold, 4 sellers, 3 days</div></div>
+                <div class="row"><div class="line"><span class="name">Emerald Earrings</span><span class="price">15,000</span></div>
+                  <div class="under"><div class="why">seen 2,999&#8211;900K</div><span class="tag quiet">hover for stats</span></div></div>
+                <div class="row"><div class="line"><span class="name">Cuddle Bear</span><span class="side"><span class="tag quiet">fair</span><span class="price">110,000</span></span></div></div>
+                <div class="row"><div class="line"><span class="name">Mana Elixir</span><span class="price">310 each</span></div>
+                  <div class="under"><div class="rail over"><span class="sold-at" style="left:40%"></span><span class="here" style="left:72%"></span></div><span class="tag over">+45%</span></div>
+                  <div class="why">100 for 31,000, vs 214 sold, 3 sellers, 4 days</div>
+                  <div class="walk">Cheaper: 220 at CH.4 FM 3, 12 min ago</div></div>
+                <div class="row sold"><div class="line"><span class="name">Sapphire Ore</span><span class="side"><span class="tag quiet">sold</span><span class="price">288</span></span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col new">
+        <p class="which">Proposed</p>
+        <div class="stage">
+          <div class="v2">
+            <div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.30</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="head">
+              <div class="who"><h3>DagTheGun11</h3><span class="count">1 deal</span></div>
+              <p>FM 9 &#183; 4 for sale</p>
+            </div>
+            <div class="rows2">
+              <div class="r"><span class="v deal">&#8722;38%</span><span class="n">Red Whip</span><span class="p">280,000</span>
+                <span class="sub">Sold for 450K. Next cheapest ask 520K.</span></div>
+              <div class="r"><span class="v quiet">hover</span><span class="n">Emerald Earrings</span><span class="p">15,000</span>
+                <span class="sub">Its stats decide the price</span></div>
+              <div class="r"><span class="v quiet">fair</span><span class="n">Cuddle Bear</span><span class="p">110,000</span></div>
+              <div class="r"><span class="v over">+45%</span><span class="n">Mana Elixir</span><span class="p">310 <small>each</small></span>
+                <span class="go">Cheaper: 220 at CH.4 FM 3, 12 min ago</span></div>
+            </div>
+            <div class="group">Sold here</div>
+            <div class="r sold" style="border:0"><span class="v quiet">sold</span><span class="n">Sapphire Ore</span><span class="p">288</span></div>
+          </div>
+        </div>
+        <ul class="changes">
+          <li>The answer comes first on each row, in a column of its own.</li>
+          <li>The seller is the heading, because "SHOP" is just the default stall title. A real title would show under it.</li>
+          <li>The rails are gone from the list. A deal says why in words, and an overpriced row shows only where it's cheaper.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== B -->
+  <section>
+    <h2>Hovering an item in the shop</h2>
+    <div class="pair">
+      <div class="col">
+        <p class="which">Now</p>
+        <div class="stage" style="--h: 560px">
+          <div class="stall pip">
+            <div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.30</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="top"><div class="item-card"><h4>Emerald Earrings</h4><p class="state">Clean</p>
+              <div class="rail big deal"><span class="sold-at" style="left:30%"></span><span class="here" style="left:18%"></span></div>
+              <div class="ends"><span>2,999</span><span>900K</span></div>
+              <div class="fact"><span>Listed</span><span>15,000 each</span></div>
+              <div class="fact"><span>Sold for, 3 sales</span><span>20K</span></div>
+              <div class="fact"><span>Usually asked from</span><span>18K</span></div>
+              <div class="fact"><span>Sellers</span><span>4</span></div>
+              <div class="fact"><span>NPC pays</span><span>1,500</span></div></div></div>
+            <div class="list">
+              <div class="shop"><h3>SHOP</h3><p><span>by DagTheGun11</span><span>CH.30 FM 9</span><span>4 for sale, 1 sold</span><b>2 deals</b></p></div>
+              <div class="rows">
+                <div class="row"><div class="line"><span class="name">Red Whip</span><span class="price">280,000</span></div>
+                  <div class="under"><div class="rail deal"><span class="sold-at" style="left:58%"></span><span class="here" style="left:34%"></span></div><span class="tag deal">deal &#8722;38%</span></div>
+                  <div class="why">vs 450K sold, 4 sellers, 3 days</div></div>
+                <div class="row"><div class="line"><span class="name">Emerald Earrings</span><span class="price">15,000</span></div>
+                  <div class="under"><div class="rail deal"><span class="sold-at" style="left:30%"></span><span class="here" style="left:18%"></span></div><span class="tag deal">deal &#8722;25%</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col new">
+        <p class="which">Proposed</p>
+        <div class="stage" style="--h: 560px">
+          <div class="v2">
+            <div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.30</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="head">
+              <div class="who"><h3>DagTheGun11</h3><span class="count">2 deals</span></div>
+              <p>FM 9 &#183; 4 for sale</p>
+            </div>
+            <div class="rows2">
+              <div class="r"><span class="v deal">&#8722;38%</span><span class="n">Red Whip</span><span class="p">280,000</span>
+                <span class="sub">Sold for 450K. Next cheapest ask 520K.</span></div>
+              <div class="r open"><span class="v deal">&#8722;25%</span><span class="n">Emerald Earrings</span><span class="p">15,000</span>
+                <div class="facts">
+                  <div class="state">Clean, 5 slots left</div>
+                  <div class="fact"><span>Same stats sold for</span><span>20K</span></div>
+                  <div class="fact"><span>Cheapest other ask</span><span>18K</span></div>
+                </div></div>
+              <div class="r"><span class="v quiet">fair</span><span class="n">Cuddle Bear</span><span class="p">110,000</span></div>
+              <div class="r"><span class="v over">+45%</span><span class="n">Mana Elixir</span><span class="p">310 <small>each</small></span>
+                <span class="go">Cheaper: 220 at CH.4 FM 3, 12 min ago</span></div>
+            </div>
+            <div class="group">Sold here</div>
+            <div class="r sold" style="border:0"><span class="v quiet">sold</span><span class="n">Sapphire Ore</span><span class="p">288</span></div>
+          </div>
+        </div>
+        <ul class="changes">
+          <li>The hovered row opens where it is, with a blue edge, and its answer updates in the same column.</li>
+          <li>Only the facts that change a decision are listed. NPC pays shows only when it beats the price.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== C -->
+  <section>
+    <h2>Hovering your own item, with no shop open</h2>
+    <div class="pair">
+      <div class="col">
+        <p class="which">Now</p>
+        <div class="stage" style="--h: 300px">
+          <div class="stall pip">
+            <div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.30</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="top"><div class="item-card"><h4>Ilbi Throwing-Stars</h4>
+              <div class="rail big"><span class="sold-at" style="left:44%"></span></div>
+              <div class="ends"><span>950K</span><span>9,999,999</span></div>
+              <div class="fact"><span>Sold for, 5 sales</span><span>1.2M</span></div>
+              <div class="fact"><span>Usually asked from</span><span>1.1M</span></div>
+              <div class="fact"><span>Sellers</span><span>7</span></div>
+              <div class="fact"><span>NPC pays</span><span>500</span></div></div></div>
+            <div class="list"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col new">
+        <p class="which">Proposed</p>
+        <div class="stage" style="--h: 300px">
+          <div class="v2">
+            <div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.30</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="mine" style="margin-top:0">
+              <div class="label">Your item</div>
+              <h4>Ilbi Throwing-Stars</h4>
+              <div class="fact"><span>Sold for, 5 sales</span><span>1.2M</span></div>
+              <div class="fact"><span>Cheapest ask</span><span>1.1M &#183; <em style="font-style:normal;color:var(--sky)">CH.7 FM 2</em></span></div>
+              <div class="fact"><span>Asks seen</span><span>950K to 9,999,999</span></div>
+            </div>
+          </div>
+        </div>
+        <ul class="changes">
+          <li>It's labelled "Your item", so it's never mistaken for a listing.</li>
+          <li>Sold for and the cheapest ask, as in Prices. No single "list at" number.</li>
+          <li>With a shop open, this sits in a fixed slot under the list rather than above it.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== D -->
+  <section>
+    <h2>Between shops</h2>
+    <div class="pair">
+      <div class="col">
+        <p class="which">Now</p>
+        <div class="stage" style="--h: 300px">
+          <div class="stall pip">
+            <div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.30</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="list"><p class="waiting">Open a shop in the game.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="col new">
+        <p class="which">Proposed</p>
+        <div class="stage" style="--h: 300px">
+          <div class="v2">
+            <div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.30</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="head"><div class="who"><h3 class="dim">Best deals this session</h3></div></div>
+            <div class="rows2">
+              <div class="r"><span class="v deal">&#8722;38%</span><span class="n">Red Whip</span><span class="p">280,000</span>
+                <span class="go">CH.30 FM 9, DagTheGun11, 4 min ago</span></div>
+              <div class="r"><span class="v deal">&#8722;31%</span><span class="n">Steely Throwing-Knives</span><span class="p">410,000</span>
+                <span class="go">CH.12 FM 3, MountainHog, 18 min ago</span></div>
+              <div class="r"><span class="v deal">&#8722;24%</span><span class="n">Scroll for Gloves for ATT 60%</span><span class="p">95,000</span>
+                <span class="go">CH.30 FM 9, Veapy, 21 min ago</span></div>
+            </div>
+            <p class="hint">Walk into a shop to check it.</p>
+          </div>
+        </div>
+        <ul class="changes">
+          <li>The card is still useful between shops: it lists the deals you walked past, with where they are.</li>
+          <li>Only deals from the last few hours, because shops close (the same limit as "Cheaper").</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== E -->
+  <section>
+    <h2>Something's wrong</h2>
+    <div class="pair">
+      <div class="col">
+        <p class="which">Now</p>
+        <div class="stage" style="--h: 330px">
+          <div class="stall pip">
+            <div class="bar"><span class="live bad"></span><span class="text">Scanning</span><span class="channel unknown">CH ?</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="top"><div class="problem">The game picture has been frozen for 11 seconds. Stop scanning, then start it again if it doesn't come back.</div></div>
+            <div class="list">
+              <div class="shop"><h3>SHOP</h3><p><span>by DagTheGun11</span><span>4 for sale, 1 sold</span><b>1 deal</b></p></div>
+              <div class="rows">
+                <div class="row"><div class="line"><span class="name">Red Whip</span><span class="price">280,000</span></div>
+                  <div class="under"><div class="rail deal"><span class="sold-at" style="left:58%"></span><span class="here" style="left:34%"></span></div><span class="tag deal">deal &#8722;38%</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col new">
+        <p class="which">Proposed</p>
+        <div class="stage" style="--h: 330px">
+          <div class="v2">
+            <div class="bar bad" title="The game picture has been frozen for 11 seconds. MapleScanner is reconnecting by itself."><span class="live"></span><span class="text"><b style="color:inherit">Picture frozen</b>, reconnecting</span><span class="channel unknown">CH ?</span>
+              <button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>
+            <div class="stale">
+              <div class="head">
+                <div class="who"><h3>DagTheGun11</h3><span class="count">1 deal</span></div>
+                <p>4 for sale &#183; from 11 s ago</p>
+              </div>
+              <div class="rows2">
+                <div class="r"><span class="v deal">&#8722;38%</span><span class="n">Red Whip</span><span class="p">280,000</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="changes">
+          <li>The problem is the bar: it turns orange with one short line, and the full text shows on hover. Nothing gets cut off.</li>
+          <li>Rows that may be out of date fade, so an old read can't pass for a live one.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== F -->
+  <section>
+    <h2>Shrunk to the bar</h2>
+    <div class="pair">
+      <div class="col">
+        <p class="which">Now</p>
+        <div class="stage" style="--h: 90px">
+          <div class="stall pip small">
+            <div class="bar"><span class="live on"></span><span class="text">SHOP, 1 deal</span><span class="channel">CH.30</span>
+              <button aria-label="Expand">+</button><button aria-label="Close">&#215;</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="col new">
+        <p class="which">Proposed</p>
+        <div class="stage" style="--h: 90px">
+          <div class="v2">
+            <div class="bar"><span class="live on"></span><span class="text"><b>DagTheGun11</b> &#183; <span class="deals">Red Whip &#8722;38%</span></span><span class="channel">CH.30</span>
+              <button aria-label="Expand">+</button><button aria-label="Close">&#215;</button></div>
+          </div>
+        </div>
+        <ul class="changes">
+          <li>The shrunk card shows the best deal itself, not just how many there are.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+  // Card size: the game draws its windows about 1.27 times larger at 2560 wide, so the card could too.
+  for (const b of document.querySelectorAll('.size button')) {
+    b.onclick = () => {
+      document.querySelectorAll('.size button').forEach(x => x.classList.toggle('on', x === b));
+      document.querySelectorAll('.stage').forEach(s => s.style.setProperty('--z', b.dataset.z));
+    };
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prices page themes</title>
+<!-- Colour themes for the Prices tab (Nov 9). The listings are the user's real list from a screenshot,
+     plus a few made up. The themes are in themes.js, and node design/check-contrast.js measures them.
+     Click a row to see the item card in the same theme. Left and right arrow keys switch theme. -->
+<link rel="stylesheet" href="../theme.css">
+<style>
+  /* ---------- the switcher: outside the themes, so it never changes ---------- */
+  body { background: #e7e2d8; }
+  .switch { position: sticky; top: 0; z-index: 5; background: #2b2b2b; color: #eee; font: 500 13px/1.4 "Segoe UI", sans-serif; padding: 8px 16px 10px; }
+  .switch .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .switch b { font-weight: 600; margin-right: 6px; }
+  .switch button { color: #ddd; background: #3a3a3a; box-shadow: none; border-radius: 6px; padding: 4px 10px; font: inherit; }
+  .switch button:hover { background: #4a4a4a; }
+  .switch button.on { background: #fff; color: #111; font-weight: 600; }
+  .switch button i { font-style: normal; opacity: .55; margin-right: 5px; }
+  .switch p { color: #bbb; margin-top: 6px; max-width: 900px; }
+  .switch .keys { color: #888; margin-left: auto; }
+
+  /* ---------- the app, coloured by the chosen theme ---------- */
+  .app { background: var(--page); color: var(--cloud); min-height: calc(100vh - 70px); }
+  .top { display: flex; align-items: center; gap: 4px; height: 46px; padding: 0 12px 0 16px; background: var(--night); border-bottom: 1px solid var(--dusk); }
+  .top h1 { font-size: 18px; line-height: 1; margin-right: 18px; }
+  .top .tab { box-shadow: none; color: var(--mist); padding: 5px 10px; border-radius: 6px; }
+  .top .tab:hover { background: var(--dusk); }
+  .top .tab.on { background: var(--tabOnBg); color: var(--tabOnFg); font-weight: 700; }
+  .top .win { margin-left: auto; display: flex; gap: 22px; color: var(--mist); font-size: 15px; padding-right: 8px; user-select: none; }
+
+  main { padding: 18px 24px 40px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 800px) { main { padding: 16px; } }
+  .find { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .find input { flex: 1 1 320px; font-size: 16px; padding: 10px 14px; border-radius: 8px; background: var(--search); }
+  .find .tools { display: flex; gap: 8px; }
+  .find .tools button { padding: 6px 11px; font-size: 13px; }
+
+  /* filters: a pill per inventory tab */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; }
+  .chip { font: var(--chipWeight) 13px/18px var(--display); color: var(--chipFg); padding: 4px 11px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--ridge); }
+  .chip small { font: 500 12px var(--text); color: var(--mist); margin-left: 3px; }
+  .chip.on, .chip.on:hover { background: var(--selBg); color: var(--selFg); box-shadow: inset 0 0 0 1px var(--selRing); font-weight: 700; }
+  .chip.on small { color: var(--selCount); }
+  [data-tick] .chip.on::before { content: "✓"; margin-right: 4px; }
+  [data-panel] .chip.on { box-shadow: inset 0 0 0 1.5px var(--selRing); }
+
+  /* filters as tabs with a line under the chosen one */
+  [data-look=underline] .chips { gap: 2px; border-bottom: 1px solid var(--dusk); }
+  [data-look=underline] .chip { box-shadow: none; border-radius: 0; padding: 6px 12px 8px; margin-bottom: -1px; border-bottom: 2px solid transparent; }
+  [data-look=underline] .chip:hover { background: none; color: var(--cloud); }
+  [data-look=underline] .chip.on, [data-look=underline] .chip.on:hover { background: none; box-shadow: none; border-bottom-color: var(--selRing); }
+  [data-look=underline] .top { gap: 8px; }
+  [data-look=underline] .top .tab { border-radius: 0; padding: 12px 4px 11px; border-bottom: 2px solid transparent; }
+  [data-look=underline] .top .tab:hover { background: none; color: var(--cloud); }
+  [data-look=underline] .top .tab.on { background: none; border-bottom-color: var(--meso); }
+  [data-look=underline] th { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; font-weight: 700; }
+
+  .counts { color: var(--mist); font-size: 13px; margin: 14px 0 6px; }
+
+  /* the list */
+  .panel { background: var(--panel); }
+  [data-panel] .panel { border-radius: 12px; box-shadow: 0 0 0 1px var(--ridge), 0 2px 10px rgb(60 40 10 / 6%); overflow: hidden; }
+  .wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; color: var(--thFg); font-size: 12.5px; font-weight: 500; white-space: nowrap; padding: 9px 10px 7px; background: var(--headBg); }
+  th.sorted { color: var(--sortFg); font-weight: 700; }
+  td { padding: 7px 10px; border-top: 1px solid var(--dusk); }
+  .num { text-align: right; white-space: nowrap; }
+  tr.item { cursor: pointer; }
+  tr.item:hover { background: var(--dusk); }
+  .nm { font-weight: 700; }
+  .nm .named { align-items: center; }
+  .kind { color: var(--mist); font-size: 13px; white-space: nowrap; }
+  .usual b { font-size: 15px; }
+  td span.under { display: block; font-size: 12px; color: var(--mist); }
+  td span.under.go { color: var(--sky); font-weight: 600; }
+  .early { color: var(--mist); font-weight: 500; font-size: 12px; }
+  .quiet { color: var(--mist); }
+  @media (max-width: 760px) { .wide { display: none; } }
+
+  /* placeholder icons: game icons aren't bundled, see CLAUDE.md */
+  .icon { width: 24px; height: 24px; border-radius: 6px; background: hsl(var(--h) 60% 62%); box-shadow: inset 0 -3px 0 rgb(0 0 0 / 15%); margin-right: 9px; }
+  [data-dark] .icon { background: hsl(var(--h) 45% 50%); }
+
+  /* ---------- the item card ---------- */
+  .veil { position: fixed; inset: 0; z-index: 6; background: rgb(42 26 8 / 45%); display: grid; place-items: center; padding: 16px; }
+  .veil[hidden] { display: none; }
+  .card { width: min(980px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--night); color: var(--cloud); border-radius: 12px; }
+  .card-head { background: var(--dusk); padding: 16px 20px 14px; display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start; position: relative; }
+  .card-head .who { display: flex; gap: 12px; align-items: center; flex: 1 1 240px; min-width: 0; padding-right: 36px; }
+  .card-head .icon { width: 44px; height: 44px; margin: 0; flex: none; border-radius: 10px; }
+  .card-head h2 { font-size: 24px; line-height: 1.15; }
+  .card-head .who p { color: var(--mist); font-size: 13px; }
+  .close { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; padding: 0; border-radius: 50%; font-size: 18px; line-height: 1; }
+  .figures { display: flex; flex-wrap: wrap; gap: 8px 28px; flex: 10 1 520px; }
+  .fig > span { display: block; font-size: 12.5px; color: var(--mist); white-space: nowrap; }
+  .fig > span.go { color: var(--sky); font-weight: 600; }
+  .fig b { display: block; font-size: 24px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+  .fig.main b { font-size: 28px; }
+  .card-body { padding: 14px 20px 20px; }
+  .seg { display: inline-flex; background: var(--dusk); border-radius: 16px; padding: 2px; }
+  .seg button { font: 600 13px/18px var(--display); padding: 4px 11px; border-radius: 14px; box-shadow: none; color: var(--mist); }
+  .seg button.on, .seg button.on:hover { background: var(--selBg); color: var(--selFg); box-shadow: inset 0 0 0 1px var(--selRing); }
+  [data-look=underline] .seg button.on { background: var(--night); color: var(--cloud); box-shadow: 0 1px 2px rgb(0 0 0 / 15%); }
+  .chart { margin-top: 12px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--dusk); padding: 8px 10px 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--mist); padding: 0 4px; }
+  .legend i { display: inline-block; vertical-align: -1px; margin-right: 5px; }
+  .legend .l-ask { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--sky); }
+  .legend .l-sold { width: 8px; height: 8px; background: var(--meso); transform: rotate(45deg); }
+  .legend .l-usual { width: 16px; border-top: 2px dashed var(--cloud); vertical-align: 3px; }
+  .chart svg { display: block; width: 100%; height: auto; }
+  .chart text { font: 500 11px var(--text); fill: var(--mist); }
+  .chart .grid { stroke: var(--dusk); }
+  .chart .ask { fill: var(--night); stroke: var(--sky); stroke-width: 1.8; }
+  .chart .sold { fill: var(--meso); }
+  .chart .usual { stroke: var(--cloud); stroke-dasharray: 6 4; stroke-width: 1.5; }
+  .rows-head { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 4px; }
+  .rows-head h3 { font-size: 16px; }
+  .rows-head span { color: var(--mist); font-size: 13px; }
+  .rows td { font-size: 13.5px; padding: 6px 10px; }
+  .rows td.when { color: var(--mist); white-space: nowrap; }
+  .rows td.where { color: var(--sky); font-weight: 600; white-space: nowrap; }
+  .rows td.price { font-weight: 700; font-size: 14.5px; }
+  .rows tr.sold td { color: var(--mist); }
+  .badge { font: 600 11px/16px var(--display); padding: 0 6px; border-radius: 4px; background: var(--dusk); color: var(--mist); margin-right: 6px; vertical-align: 1px; }
+  .tag.deal { margin-left: 6px; vertical-align: 1px; }
+</style>
+</head>
+<body>
+<div class="switch">
+  <div class="row"><b>Theme</b><span id="themeButtons" class="row"></span><span class="keys">← → to switch, click a row for its card</span></div>
+  <p id="about"></p>
+</div>
+
+<div class="app" id="app">
+  <div class="top">
+    <h1>MapleScanner</h1>
+    <button class="tab">Scanner</button><button class="tab on">Prices</button><button class="tab">Settings</button>
+    <span class="win" aria-hidden="true">─ ☐ ✕</span>
+  </div>
+  <main>
+    <div class="find">
+      <input type="search" placeholder="Find an item, like elixir or ilbi" aria-label="Find an item">
+      <div class="tools"><button>Export backup</button><button>Import backup</button></div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <p class="counts">779 items, 3,480 listings</p>
+    <div class="panel"><div class="wrap"><table id="list"></table></div></div>
+  </main>
+
+  <div class="veil" id="veil" hidden>
+    <div class="card" role="dialog" aria-label="Item prices">
+      <div class="card-head">
+        <div class="who"><span class="icon" id="cIcon"></span><div><h2 id="cName"></h2><p id="cKind"></p></div></div>
+        <button class="close" id="close" aria-label="Close">✕</button>
+        <div class="figures" id="cFigs"></div>
+      </div>
+      <div class="card-body">
+        <div class="seg" id="seg"></div>
+        <div class="chart">
+          <div class="legend"><span><i class="l-ask"></i>asking</span><span><i class="l-sold"></i>sold</span><span><i class="l-usual"></i>usual price</span></div>
+          <svg id="chart" viewBox="0 0 900 200" role="img" aria-label="Prices over the last day"></svg>
+        </div>
+        <div class="rows-head"><h3>Asks, cheapest first</h3><span>and sales</span></div>
+        <table class="rows" id="rows"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="themes.js"></script>
+<script>
+  // The user's list from a screenshot (Nov 9), plus Ilbi and Elixir to show sold prices.
+  // [name, kind, icon hue, usual, early, basis, cheapest, where, listed, sold, seen]
+  const ITEMS = [
+    ['Heartbreaker Lips', 'Face', 350, '6769.68M', true, 'low ask, each', '6769.68M', 'CH.2 FM 3', 1, 0, '10 h ago'],
+    ["Green Malady's Candy", 'Potion', 110, '100M', true, 'low ask, each', '100M', 'CH.3 FM 13', 1, 0, '11 h ago'],
+    ['Dark Garner', 'Gloves', 30, '35.56M', true, 'low ask', null, null, 1, 0, '34 h ago'],
+    ['Ilbi Throwing Stars', 'Throwing star', 45, '19.5M', false, 'middle of sales', '18.8M', 'CH.1 FM 7', 12, 9, '2 h ago', true],
+    ['Soft Chocolate Fondue Scepter', 'Weapon', 15, '5.9M', true, 'low ask, each', '5.9M', 'CH.2 FM 13', 1, 0, '23 h ago'],
+    ['Cromi', 'Wand', 80, '2.5M', false, 'low ask', '2.5M', 'FM 3', 3, 0, '17 h ago'],
+    ['Olympus', 'Bow', 200, '1.67M', false, 'low ask', '8.8M', 'FM 3', 4, 0, '17 h ago'],
+    ['Steel Slain', 'Claw', 220, '1.6M', false, 'low ask', '1.7M', 'CH.2 FM 1', 5, 1, '23 h ago'],
+    ['Gloves Attack Scroll: Intermediate', 'Scroll', 20, '1.48M', false, 'low ask, each', '1.45M', 'CH.3 FM 13', 16, 0, '11 h ago'],
+    ['Ink-and-Wash Thought Bubble Ring', 'Ring', 0, '1.4M', false, 'low ask, each', '1.4M', 'CH.2 FM 1', 3, 0, '11 h ago'],
+    ['Pink Elephant Slippers', 'Shoes', 330, '1M', true, 'low ask, each', '1M', 'CH.5 FM 1', 1, 1, '23 h ago'],
+    ['Amethyst', 'Ore', 290, '1M', true, 'low ask, each', '1M', 'CH.5 FM 1', 1, 1, '23 h ago'],
+    ['Mushroom Spore', 'Etc', 60, '1M', true, 'low ask, each', '1M', 'CH.2 FM 1', 1, 0, '23 h ago'],
+    ['Cat Soul', 'Weapon', 260, '950K', false, 'low ask, each', '950K', 'CH.2 FM 1', 4, 0, '23 h ago'],
+    ['White Label Ring', 'Ring', 50, '900K', false, 'low ask, each', '900K', 'CH.2 FM 1', 8, 0, '23 h ago'],
+    ['Elixir', 'Potion', 0, '5.4K', false, 'middle of sales, each', '4.9K', 'CH.1 FM 2', 42, 31, '1 h ago', true],
+  ];
+  const TABS = [['All', 779], ['Equip', 372], ['Use', 127], ['Setup', 4], ['Etc', 87], ['Cash', 189]];
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+  const app = document.getElementById('app');
+  let current = Math.max(0, THEMES.findIndex(t => t.id === location.hash.slice(1)));
+
+  function applyTheme(i) {
+    current = (i + THEMES.length) % THEMES.length;
+    const t = THEMES[current];
+    for (const [k, v] of Object.entries(t.colors)) app.style.setProperty('--' + k.replace(/[A-Z]/g, m => '-' + m.toLowerCase()).replace(/^-/, ''), v);
+    // theme.css names are lower case (--on-bright), the theme's own tokens keep their camel case
+    for (const k of ['selBg', 'selFg', 'selRing', 'selCount', 'chipFg', 'thFg', 'sortFg', 'tabOnBg', 'tabOnFg', 'headBg']) app.style.setProperty('--' + k, t.colors[k]);
+    app.style.setProperty('--chipWeight', t.chipWeight);
+    app.dataset.look = t.look;
+    toggle('tick', t.tick); toggle('panel', t.panel); toggle('dark', t.dark);
+    document.documentElement.style.colorScheme = t.dark ? 'dark' : 'light';
+    document.getElementById('about').textContent = t.about;
+    document.querySelectorAll('#themeButtons button').forEach((b, n) => b.classList.toggle('on', n === current));
+    history.replaceState(null, '', '#' + t.id);
+  }
+  const toggle = (k, on) => on ? app.setAttribute('data-' + k, '') : app.removeAttribute('data-' + k);
+
+  document.getElementById('themeButtons').innerHTML = THEMES.map((t, n) => `<button><i>${n + 1}</i>${esc(t.name)}</button>`).join('');
+  document.querySelectorAll('#themeButtons button').forEach((b, n) => b.onclick = () => applyTheme(n));
+  addEventListener('keydown', e => {
+    if (e.target.matches('input')) return;
+    if (e.key === 'ArrowRight') applyTheme(current + 1);
+    if (e.key === 'ArrowLeft') applyTheme(current - 1);
+    if (/^[1-9]$/.test(e.key) && THEMES[e.key - 1]) applyTheme(e.key - 1);
+    if (e.key === 'Escape') closeCard();
+  });
+
+  let tab = 0;
+  function drawChips() {
+    const el = document.getElementById('chips');
+    el.innerHTML = TABS.map(([n, c], i) => `<button class="chip${i === tab ? ' on' : ''}">${n}<small>${c}</small></button>`).join('');
+    el.querySelectorAll('.chip').forEach((b, i) => b.onclick = () => { tab = i; drawChips(); });
+  }
+
+  function drawList() {
+    const head = `<tr><th>Item</th><th class="wide">Kind</th><th class="num sorted">Usual price ↓</th><th class="num">Cheapest ask, 24 h</th><th class="num wide">Listed</th><th class="num wide">Sold</th><th class="num wide">Last seen</th></tr>`;
+    const rows = ITEMS.map(([name, kind, hue, usual, early, basis, low, where, listed, sold, seen], i) => `
+      <tr class="item" data-i="${i}">
+        <td class="nm"><span class="named"><span class="icon" style="--h:${hue}"></span><span class="name">${esc(name)}</span></span></td>
+        <td class="kind wide">${kind}</td>
+        <td class="num usual"><b>${usual}</b>${early ? ' <span class="early">early</span>' : ''}<span class="under">${basis}</span></td>
+        <td class="num">${low ? `${low}<span class="under go">${where}</span>` : '<span class="quiet">none</span>'}</td>
+        <td class="num wide">${listed}</td><td class="num wide">${sold}</td><td class="num wide quiet">${seen}</td>
+      </tr>`).join('');
+    const list = document.getElementById('list');
+    list.innerHTML = `<thead>${head}</thead><tbody>${rows}</tbody>`;
+    list.querySelectorAll('tr.item').forEach(tr => tr.onclick = () => openCard(+tr.dataset.i));
+  }
+
+  // The card: made-up asks around the item's price, enough to show the colours.
+  let span = 2;
+  function openCard(i) {
+    const [name, kind, hue, usual, early, basis, low, where, listed, sold] = ITEMS[i];
+    document.getElementById('cIcon').style.setProperty('--h', hue);
+    document.getElementById('cName').textContent = name;
+    document.getElementById('cKind').textContent = `${kind}, ${listed} listed, ${sold} sold`;
+    document.getElementById('cFigs').innerHTML = `
+      <div class="fig main"><span>Usual price${early ? ', early' : ''}</span><b>${usual}</b><span>${basis}</span></div>
+      <div class="fig"><span>Cheapest ask, 24 h</span><b>${low ?? '<span class="quiet">none</span>'}</b><span class="go">${where ?? ''}</span></div>
+      <div class="fig"><span>Last sale</span><b>${sold ? usual : '<span class="quiet">none yet</span>'}</b><span>${sold ? '6 h ago' : ''}</span></div>`;
+    drawSeg();
+    drawChart(sold);
+    document.getElementById('rows').innerHTML = `<thead><tr><th class="num sorted">Price ↑</th><th>Where</th><th>Seller</th><th>Seen</th></tr></thead><tbody>
+      <tr><td class="num price">${low ?? usual}${i === 3 ? '<span class="tag deal">deal</span>' : ''}</td><td class="where">${where ?? 'FM 3'}</td><td>MapleMart</td><td class="when">2 h ago</td></tr>
+      <tr><td class="num price">${usual}</td><td class="where">CH.4 FM 6</td><td>bunbunshop</td><td class="when">5 h ago</td></tr>
+      <tr><td class="num price">9,999,999</td><td class="where">CH.1 FM 1</td><td>Trollololo</td><td class="when">9 h ago</td></tr>
+      <tr class="sold"><td class="num price"><span class="badge">sold</span>${usual}</td><td>CH.2 FM 4</td><td>leafyleaf</td><td class="when">6 h ago</td></tr>
+    </tbody>`;
+    document.getElementById('veil').hidden = false;
+  }
+  function closeCard() { document.getElementById('veil').hidden = true; }
+  document.getElementById('close').onclick = closeCard;
+  document.getElementById('veil').onclick = e => { if (e.target.id === 'veil') closeCard(); };
+
+  function drawSeg() {
+    const el = document.getElementById('seg');
+    el.innerHTML = ['1 h', '6 h', '24 h', '7 d', '30 d', 'All'].map((s, i) => `<button class="${i === span ? 'on' : ''}">${s}</button>`).join('');
+    el.querySelectorAll('button').forEach((b, i) => b.onclick = () => { span = i; drawSeg(); });
+  }
+
+  function drawChart(sold) {
+    const asks = [[60, 92], [140, 70], [230, 84], [330, 60], [420, 96], [520, 66], [640, 78], [760, 58], [850, 74]];
+    const sales = sold ? [[280, 110], [600, 104], [700, 118]] : [];
+    let svg = [40, 80, 120, 160].map(y => `<line class="grid" x1="40" x2="890" y1="${y}" y2="${y}"/>`).join('');
+    svg += ['24 h', '18 h', '12 h', '6 h', 'now'].map((s, k) => `<text x="${40 + k * 210}" y="192" text-anchor="${k === 4 ? 'end' : 'start'}">${s}</text>`).join('');
+    svg += `<line class="usual" x1="40" x2="890" y1="96" y2="96"/>`;
+    svg += asks.map(([x, y]) => `<circle class="ask" cx="${x}" cy="${y}" r="5"/>`).join('');
+    svg += sales.map(([x, y]) => `<rect class="sold" x="${x - 5}" y="${y - 5}" width="10" height="10" transform="rotate(45 ${x} ${y})"/>`).join('');
+    document.getElementById('chart').innerHTML = svg;
+  }
+
+  drawChips();
+  drawList();
+  applyTheme(current);
+</script>
+</body>
+</html>

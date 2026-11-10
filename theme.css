@@ -1,0 +1,186 @@
+/* The look of the whole app, shared by the scanner page, the price database and the pop-out.
+   Colours and fonts live only in :root, so the design can be changed here. */
+@font-face { font-family: "Nunito"; src: url(fonts/nunito-latin-wght-normal.woff2) format("woff2"); font-weight: 200 1000; font-display: swap; }
+@font-face { font-family: "Fredoka"; src: url(fonts/fredoka-latin-wght-normal.woff2) format("woff2"); font-weight: 300 700; font-display: swap; }
+
+:root {
+  color-scheme: light;
+  /* The cream colours of OSMS Data Explorer. The names are from the app's first, dark colour set. */
+  /* surfaces: OSMS card, page and border */
+  --night: #fbf7ee;
+  --dusk: #f0e8d6;
+  --ridge: #d4c4a8;
+  /* text: OSMS brown, and a muted brown dark enough for small text */
+  --cloud: #2a1a08;
+  --mist: #6b5438;
+  /* meaning: OSMS orange and link blue, the rest chosen to sit with them */
+  --meso: #c04f00;   /* the app's own actions: OSMS orange, a touch darker to carry text */
+  --meso-text: #943c00; /* what the player chose (a filter, a sort): orange dark enough for small capitals */
+  --exp: #26703a;    /* good for the buyer */
+  --hp: #b42318;     /* over the usual price, or destructive */
+  --ember: #8a5f00;  /* look closer */
+  --sky: #005db7;    /* where to walk */
+  --on-bright: #fffaf0;
+
+  --display: "Fredoka", "Segoe UI", sans-serif;
+  --text: "Nunito", "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--night); }
+body { margin: 0; background: var(--night); color: var(--cloud); font: 500 14px/1.45 var(--text); font-variant-numeric: tabular-nums; }
+p { margin: 0; }
+h1, h2, h3, h4 { font-family: var(--display); font-weight: 600; margin: 0; }
+a { color: var(--sky); }
+:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+
+/* Scroll bars: a rounded beige thumb on no track, darker while held. The transparent border keeps
+   it clear of the edge. Edge and Chrome only, like the app; scrollbar-color would switch these off. */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ridge) padding-box; border: 3px solid transparent; border-radius: 6px; min-height: 40px; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ridge), var(--mist) 35%); }
+::-webkit-scrollbar-thumb:active { background-color: var(--mist); }
+
+/* ---------- controls ---------- */
+button, .button { font: inherit; color: var(--cloud); background: none; border: 0; box-shadow: inset 0 0 0 1px var(--ridge); border-radius: 7px; padding: 7px 13px; cursor: pointer; text-decoration: none; display: inline-block; }
+button:hover, .button:hover { background: var(--dusk); }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--meso); color: var(--on-bright); box-shadow: none; font: 600 16px/1 var(--display); padding: 11px 18px; }
+button.primary:hover { background: var(--meso); filter: brightness(1.08); }
+button.danger { color: var(--hp); box-shadow: inset 0 0 0 1px currentColor; }
+button.danger.solid { background: var(--hp); color: var(--on-bright); box-shadow: none; font-weight: 700; }
+input, select { font: inherit; color: var(--cloud); background: var(--dusk); border: 0; border-radius: 6px; padding: 6px 10px; }
+input::placeholder { color: var(--mist); }
+
+/* ---------- settings: a row of words with a switch at the end ---------- */
+.setting { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--dusk); cursor: pointer; }
+.setting:last-of-type { border-bottom: 1px solid var(--dusk); }
+.setting-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.setting-text b { font: 600 16px/1.3 var(--display); }
+.setting-text span { color: var(--mist); font-size: 13px; }
+input[role="switch"] { appearance: none; flex: none; position: relative; width: 42px; height: 24px; padding: 0; margin: 0; border-radius: 12px; background: var(--ridge); cursor: pointer; transition: background .15s; }
+input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--on-bright); transition: transform .15s; }
+input[role="switch"]:checked { background: var(--exp); }
+input[role="switch"]:checked::before { transform: translateX(18px); }
+input[role="switch"]:disabled { opacity: .5; cursor: default; }
+
+/* ---------- dialogs ---------- */
+dialog { background: var(--dusk); color: var(--cloud); border: 0; box-shadow: 0 0 0 1px var(--ridge); border-radius: 10px; padding: 16px; width: min(420px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgb(42 26 8 / 45%); }
+dialog h2 { font-size: 18px; line-height: 1.2; margin-bottom: 4px; }
+dialog p { color: var(--mist); font-size: 13px; margin-bottom: 12px; }
+dialog p.problem { color: var(--cloud); margin: 0 0 12px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- price rail: see priceRail in market.js ---------- */
+.rail { position: relative; flex: 1; min-width: 0; height: 14px; }
+.rail::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--ridge); border-radius: 1px; }
+.rail.thin::before { background: none; border-top: 2px dotted var(--ridge); height: 0; }
+.rail .sold-at { position: absolute; top: 1px; width: 2px; height: 12px; margin-left: -1px; background: var(--cloud); }
+.rail .here { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--dot, var(--mist)); box-shadow: 0 0 0 2px var(--under, var(--night)); }
+.rail.deal { --dot: var(--exp); }
+.rail.warn { --dot: var(--ember); }
+.rail.over { --dot: var(--hp); }
+.rail.big { flex: none; height: 20px; margin: 0 2px; }
+.rail.big::before { top: 9px; }
+.rail.big .sold-at { top: 3px; height: 14px; }
+.rail.big .here { top: 3px; width: 14px; height: 14px; margin-left: -7px; }
+
+/* ---------- verdict tags: only a deal or a warning is filled, so "fair" stays calm ---------- */
+.tag { font: 600 13px/18px var(--display); white-space: nowrap; flex: none; }
+.tag.deal, .tag.warn { color: var(--on-bright); padding: 0 7px; border-radius: 4px; }
+.tag.deal { background: var(--exp); }
+.tag.warn { background: var(--ember); }
+.tag.over { color: var(--hp); }
+.tag.quiet { color: var(--mist); font-weight: 500; }
+/* How far to trust a usual price: 1 to 3 filled dots (dotsTag in prices.js). A Thin one is a
+   "look closer", so its dots are --ember. Built Nov 9 from design/confidence.html. */
+.dots { display: inline-flex; gap: 3px; margin-right: 5px; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ridge); }
+.dots i.on { background: var(--mist); box-shadow: none; }
+.level1 .dots i.on { background: var(--ember); }
+
+/* ---------- stall card: the price panel, in the page or popped out ---------- */
+.stall { width: 340px; max-width: 100%; background: var(--night); color: var(--cloud); border-radius: 10px; box-shadow: 0 0 0 1px var(--ridge); overflow: hidden; display: flex; flex-direction: column; }
+.stall.pip { width: 100%; height: calc(100vh / var(--zoom, 1)); /* vh is zoomed too, see the text size in app.js */ border-radius: 0; box-shadow: inset 0 0 0 1px var(--ridge); }
+.bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; color: var(--mist); font-size: 12px; flex: none; min-height: 34px; }
+.stall.pip .bar { cursor: grab; user-select: none; }
+.bar .live { width: 8px; height: 8px; border-radius: 50%; background: var(--ridge); flex: none; }
+.bar .live.on { background: var(--exp); }
+.bar .live.bad { background: var(--ember); }
+.bar .text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .channel { font: 600 12px/18px var(--display); white-space: nowrap; flex: none; padding: 0 7px; border-radius: 4px; background: var(--dusk); color: var(--cloud); }
+.bar .channel.unknown { background: var(--ember); color: var(--on-bright); }
+.bar .channel[hidden] { display: none; }
+.bar button { display: none; place-items: center; width: 22px; height: 22px; padding: 0; border-radius: 4px; color: var(--mist); box-shadow: none; }
+.stall.pip .bar button { display: grid; }
+.stall.small .top, .stall.small .list, .stall.small .foot { display: none; }
+.stall .top { flex: none; }
+.stall .list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.stall .list::-webkit-scrollbar { width: 8px; }
+.stall .list::-webkit-scrollbar-thumb { background: var(--ridge); border-radius: 4px; }
+
+.problem { margin: 0 8px 8px; padding: 8px 10px; border-radius: 8px; background: var(--dusk); box-shadow: inset 3px 0 0 var(--ember); font-size: 13px; }
+.idle { padding: 4px 12px 12px; color: var(--mist); font-size: 13px; }
+.stall .foot { flex: none; }
+.stall .list.stale { opacity: .45; } /* rows that may be out of date, while the picture is frozen */
+.bar.bad { background: var(--ember); color: var(--on-bright); }
+.bar.bad .live { background: var(--on-bright); }
+.bar.bad button { color: var(--on-bright); }
+.bar.bad .channel.unknown { background: var(--on-bright); color: var(--ember); }
+.bar .text b { color: var(--cloud); font-weight: 700; }
+.bar .text .deals { color: var(--exp); font-weight: 700; }
+.bar.bad .text b { color: inherit; }
+
+/* Shop heading: the seller, the deal count, then the room and a real stall title */
+.shop-head { padding: 2px 12px 8px; }
+.shop-head .who { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.shop-head h3 { font-size: 19px; line-height: 1.2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-head h3.dim { color: var(--mist); font-size: 16px; font-weight: 500; }
+.shop-head p { color: var(--mist); font-size: 13px; }
+.count { font: 600 13px/18px var(--display); color: var(--on-bright); background: var(--exp); padding: 0 7px; border-radius: 4px; flex: none; }
+
+/* A listing: the answer, the name and the price on one line, and a second line only to act on */
+.lots { border-top: 1px solid var(--dusk); }
+.lot { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline; padding: 6px 12px; border-bottom: 1px solid var(--dusk); }
+.lot .say { font: 600 13px/19px var(--display); text-align: center; border-radius: 4px; white-space: nowrap; color: var(--mist); min-width: 0; overflow: hidden; } /* never into the name */
+.lot .say.deal { background: var(--exp); color: var(--on-bright); }
+.lot .say.warn { background: var(--ember); color: var(--on-bright); }
+.lot .say.over { color: var(--hp); }
+.lot .say.quiet { font-weight: 500; }
+/* item icons: a fixed slot, pulled into the line so a row is no taller */
+.icon { display: inline-block; width: 22px; height: 22px; margin: -4px 6px -4px 0; vertical-align: middle; object-fit: contain; }
+/* An icon beside its name (iconName in pricing.js): a long name wraps beside the icon, not under
+   it. The icon is centred on the first line and adds no height, and the name gives the baseline. */
+.named { display: flex; align-items: flex-start; min-width: 0; }
+.named .icon { flex: none; margin: calc((1lh - 22px) / 2) 6px calc((1lh - 22px) / 2) 0; }
+.named .name { min-width: 0; align-self: baseline; overflow-wrap: anywhere; }
+.lot .what .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lot .cost { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.lot .cost small { font-weight: 500; font-size: 12px; color: var(--mist); }
+.lot-note, .lot-go, .lot-facts { grid-column: 2 / 4; font-size: 12.5px; line-height: 1.35; }
+.lot-note { color: var(--mist); }
+.lot-go { color: var(--sky); font-weight: 600; }
+.lot.sold { color: var(--mist); }
+.lot.sold .cost { font-weight: 500; text-decoration: line-through; }
+.lot-group { padding: 8px 12px 2px; color: var(--mist); font-size: 12px; }
+.lots + .lot-group { padding-top: 10px; }
+/* The hovered row opens where it is, so nothing else moves */
+.lot.open { background: var(--dusk); box-shadow: inset 3px 0 0 var(--sky); }
+.lot.open .what .name { white-space: normal; }
+.lot-facts { margin-top: 3px; }
+.lot-facts .state, .mine .state { color: var(--mist); font-size: 12.5px; margin-bottom: 2px; }
+.lot-facts .lot-group { padding: 6px 0 0; }
+
+/* An item that isn't a row on the card: the player's own, in a fixed place */
+.mine { margin: 0 8px 8px; padding: 8px 10px; background: var(--dusk); border-radius: 8px; }
+.list .mine { margin-top: 2px; }
+.foot .mine { margin-top: 8px; }
+.mine .label { color: var(--mist); font-size: 12px; }
+.mine h4 { font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
+.mine .lot-group { padding: 6px 0 0; }
+.fact { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; font-size: 13px; }
+.fact span:first-child { color: var(--mist); min-width: 0; }
+.fact span:last-child { font-weight: 700; white-space: nowrap; }
+.fact em { font-style: normal; color: var(--sky); font-weight: 600; }

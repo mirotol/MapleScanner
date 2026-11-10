@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MapleScanner</title>
+<script src="node_modules/tesseract.js/dist/tesseract.min.js"></script>
+<link rel="stylesheet" href="theme.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; }
+  .tabs { display: flex; align-items: center; gap: 4px; flex: none; min-height: calc(44px / min(var(--zoom, 1), 1)); padding: 0 calc(150px / min(var(--zoom, 1), 1)) 0 16px; border-bottom: 1px solid var(--dusk); -webkit-app-region: drag; }
+  .tabs h1 { font-size: 18px; line-height: 1; margin-right: 18px; }
+  /* the chosen tab has an orange line on the bar's bottom edge, like the game's inventory tabs */
+  .tabs button { -webkit-app-region: no-drag; align-self: stretch; box-shadow: none; color: var(--mist); padding: 2px 4px 0; margin: 0 6px -1px; border-radius: 0; border-bottom: 2px solid transparent; }
+  .tabs button:hover { background: none; color: var(--cloud); }
+  .tabs button.on { color: var(--cloud); font-weight: 700; border-bottom-color: var(--meso); }
+  #pricesFrame { flex: 1; border: 0; width: 100%; min-height: 0; }
+  #pricesFrame[hidden], #scannerTab[hidden], #settingsTab[hidden] { display: none; }
+  #settingsTab { flex: 1; min-height: 0; overflow-y: auto; padding: 24px; }
+  @media (max-width: 760px) { #settingsTab { padding: 16px; } }
+  .settings { max-width: 640px; }
+  .settings h2 { margin-bottom: 14px; }
+  .setting.keyed { cursor: default; }
+  .setting.keyed[hidden] { display: none; }
+  .keys { display: flex; gap: 8px; flex: none; }
+  #hotkeyKey { min-width: 110px; font-weight: 700; }
+  #hotkeyKey.listening { box-shadow: inset 0 0 0 2px var(--meso); color: var(--meso); }
+  #scannerTab { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+  main { flex: 1 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; padding: 24px; align-items: start; }
+  @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); padding: 16px; } }
+  h2 { font-size: 24px; line-height: 1.2; margin-bottom: 6px; }
+  .intro { color: var(--mist); max-width: 52ch; }
+  .note { color: var(--ember); font-size: 13px; }
+  .note:empty { display: none; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0; }
+  .controls .hint { color: var(--mist); font-size: 13px; }
+  .steps { margin: 0 0 20px; padding: 0 0 0 20px; color: var(--mist); }
+  .steps li { margin-bottom: 4px; }
+  #drop { border: 2px dashed var(--ridge); border-radius: 8px; padding: 16px; color: var(--mist); text-align: center; font-size: 13px; margin-bottom: 16px; }
+  #drop.over { border-color: var(--sky); }
+  details { color: var(--mist); font-size: 13px; margin-bottom: 8px; max-width: 64ch; }
+  summary { color: var(--cloud); cursor: pointer; }
+  details p { margin-top: 6px; }
+  details button { margin-top: 8px; }
+  #holder { min-width: 0; }
+  footer { flex: none; padding: 10px 24px 14px; color: var(--mist); font-size: 12px; border-top: 1px solid var(--dusk); }
+
+  #pickerList { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; max-height: 60vh; overflow-y: auto; }
+  #pickerList button { display: flex; flex-direction: column; gap: 5px; padding: 6px; min-width: 0; text-align: left; background: var(--night); box-shadow: none; border-radius: 6px; }
+  #pickerList button:hover { box-shadow: inset 0 0 0 1px var(--ridge); }
+  #pickerList img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: 4px; }
+  #pickerList span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<nav class="tabs" role="tablist" aria-label="MapleScanner">
+  <h1>MapleScanner</h1>
+  <button id="tabScanner" class="on" role="tab" aria-selected="true">Scanner</button>
+  <button id="tabPrices" role="tab" aria-selected="false">Prices</button>
+  <button id="tabSettings" role="tab" aria-selected="false">Settings</button>
+</nav>
+<div id="scannerTab">
+  <main>
+    <div>
+      <h2>Ready when the game is</h2>
+      <p class="intro">Start the game in a window at the default UI size, then start scanning. The picture stays on this PC: nothing is uploaded.</p>
+      <div class="controls">
+        <button id="share" class="primary">Start scanning</button>
+        <button id="pop">Pop out stall card</button>
+        <span id="popHint" class="hint"></span>
+      </div>
+      <p id="browserNote" class="note"></p>
+      <ol class="steps">
+        <li>Place the stall card next to the game. It stays on top.</li>
+        <li>Walk into a shop and scroll its list.</li>
+        <li>Hover an item to see what it's worth.</li>
+      </ol>
+      <div id="drop">Or paste a screenshot with Ctrl+V, or drop one here. Screenshots of the same shop add up.</div>
+      <details>
+        <summary>How prices work</summary>
+        <p>Every shop you scan is saved to your own price database on this PC. Each seller gets one vote, so nobody can move a price by listing more. The usual price is what items sold for, once 3 sellers have sold one over at least 2 days. Until then it's the low end of what sellers ask. It uses the last 3 days when 3 sellers are known, otherwise 7 or 14, and shows a price range until 3 sellers have listed an item. Gear is only compared with the same stats, so hover it first. NPC prices come from OSMS Data Explorer.</p>
+        <p>On each row the white tick is what the item sold for and the dot is this listing. A dotted line means few sellers, and no line means it can't be compared yet.</p>
+      </details>
+      <details>
+        <summary>Something not working?</summary>
+        <p>If no shop is ever found, turn off HDR in Windows display settings.</p>
+        <p>Saving a test frame stores what the scanner sees, so a problem can be looked at.</p>
+        <button id="saveFrame">Save a test frame</button>
+        <p id="frameStatus"></p>
+        <p>Recording saves every frame for 30 seconds, with what was read from each, so a problem that comes and goes can be looked at.</p>
+        <button id="recordFrames">Record 30 seconds of frames</button>
+        <p id="recordStatus"></p>
+      </details>
+    </div>
+    <div id="holder">
+      <div id="panel" class="stall">
+        <div class="bar">
+          <span id="barLive" class="live"></span>
+          <span id="barText" class="text" role="status"></span>
+          <span id="barChannel" class="channel" hidden></span>
+          <button id="panelShrink" aria-label="Shrink or expand">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+          <button id="panelClose" aria-label="Put the card back in the main window">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="panelTop" class="top"></div>
+        <div id="panelList" class="list"></div>
+        <div id="panelFoot" class="foot"></div>
+      </div>
+    </div>
+  </main>
+  <footer>Item data: Data from OSMS Data Explorer (https://osmsdataexplorer.com), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), reduced to item names, NPC sell prices, scroll success rates, upgrade slots and main stat lines. Item icons are downloaded from it once each and kept on this PC. Game content is © Nexon. Unofficial, not affiliated with Nexon.</footer>
+</div>
+<div id="settingsTab" hidden>
+  <section class="settings">
+    <h2>Settings</h2>
+    <label class="setting">
+      <span class="setting-text">
+        <b>Text size</b>
+        <span>Makes the whole app bigger or smaller, the stall card too.</span>
+      </span>
+      <select id="settingTextSize">
+        <option value="0.9">Small</option>
+        <option value="1">Normal</option>
+        <option value="1.15">Large</option>
+        <option value="1.3">Larger</option>
+        <option value="1.5">Largest</option>
+      </select>
+    </label>
+    <label class="setting">
+      <span class="setting-text">
+        <b>Catch fast channel changes</b>
+        <span>Checks every frame of the game for the Change Channel window, so even a quick keyboard hop saves shops with the right channel. Uses about a fifth of one CPU core. When it's off, a fast hop shows CH ? until Change Channel is opened again.</span>
+      </span>
+      <input type="checkbox" id="settingChannelWatch" role="switch">
+    </label>
+    <div class="setting keyed" id="hotkeySetting" hidden>
+      <span class="setting-text">
+        <b>Show or hide the stall card</b>
+        <span>Press this key while playing to hide the card or bring it back. The game doesn't get this key while MapleScanner is open, so pick one your own MapleStory key setup doesn't use. A key on its own is safest, because holding Ctrl, Alt or Shift also does something in the game.</span>
+      </span>
+      <span class="keys">
+        <button id="hotkeyKey" aria-describedby="hotkeyNote"></button>
+        <button id="hotkeyOff">Turn off</button>
+      </span>
+    </div>
+    <p id="hotkeyNote" class="note" role="status"></p>
+    <p id="settingsNote" class="note" role="status"></p>
+  </section>
+</div>
+<iframe id="pricesFrame" title="Price database" hidden></iframe>
+<dialog id="picker">
+  <form method="dialog">
+    <h2>Which window is the game?</h2>
+    <p>Couldn't find MapleStory by itself. Pick its window.</p>
+    <p id="pickerAdmin" class="problem" hidden>MapleStory is running, but Windows isn't offering its window. Restart MapleStory, then press Start scanning again. That has fixed it before.</p>
+    <div id="pickerList"></div>
+    <div class="dialog-actions"><button value="">Cancel</button></div>
+  </form>
+</dialog>
+<script src="pricing.js"></script>
+<script src="market.js"></script>
+<script src="scanner.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

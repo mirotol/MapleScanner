@@ -1,0 +1,20 @@
+/* A trial colour set, taken from the OSMS Data Explorer page. Load it after theme.css.
+   Only the colours change: the layout, fonts and meanings stay as they are in theme.css. */
+:root {
+  color-scheme: light;
+  /* surfaces: OSMS card, page and border, sampled from its light theme */
+  --night: #fbf7ee;
+  --dusk: #f0e8d6;
+  --ridge: #d4c4a8;
+  /* text: OSMS brown, and a muted brown dark enough for small text */
+  --cloud: #2a1a08;
+  --mist: #6b5438;
+  /* meaning: OSMS orange and link blue, the rest chosen to sit with them */
+  --meso: #c04f00;   /* the app's own actions: OSMS orange, a touch darker to carry text */
+  --exp: #26703a;    /* good for the buyer */
+  --hp: #b42318;     /* over the usual price, or destructive */
+  --ember: #8a5f00;  /* look closer */
+  --sky: #005db7;    /* where to walk */
+  --on-bright: #fffaf0;
+}
+dialog::backdrop { background: rgb(42 26 8 / 45%); }

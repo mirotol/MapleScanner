@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Price Confidence</title>
+<!-- Mockup, Nov 9: a confidence level for the usual price, next to the line the Prices page has
+     now, on a snapshot of the real item list. It needs a server that gives /api/state. Dots won,
+     and the real rules are usualSource in market.js. This page keeps its own first copy. -->
+<link rel="stylesheet" href="../theme.css">
+<style>
+  body { background: var(--night); }
+  main { padding: 0 24px 32px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 800px) { main { padding: 0 16px 16px; } }
+  .intro { padding: 18px 0 4px; }
+  .intro h1 { font: 600 22px var(--display); margin: 0 0 4px; }
+  .intro p { color: var(--mist); font-size: 13.5px; margin: 0; max-width: 760px; }
+  .topbar { position: sticky; top: 0; z-index: 2; background: var(--night); padding: 12px 0 8px; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; box-shadow: inset 0 -1px 0 var(--dusk); }
+  .topbar input[type=search] { flex: 1 1 220px; max-width: 320px; font-size: 14px; padding: 6px 10px; border-radius: 8px; }
+  .seg { display: inline-flex; background: var(--dusk); border-radius: 16px; padding: 2px; }
+  .seg button { font: 600 13px/18px var(--display); padding: 4px 11px; border-radius: 14px; box-shadow: none; }
+  .seg button.on, .seg button.on:hover { background: var(--night); color: var(--cloud); box-shadow: 0 1px 2px rgb(42 26 8 / 18%); }
+  .seg-label { color: var(--mist); font-size: 12px; margin-right: 6px; }
+  label.hide { font-size: 13px; color: var(--mist); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .summary { font-size: 13px; color: var(--mist); width: 100%; }
+  .summary b { color: var(--cloud); }
+
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: right; color: var(--mist); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; padding: 8px 10px 6px; }
+  th:first-child, th.why { text-align: left; }
+  th.proposal { color: var(--meso-text); }
+  td { padding: 7px 10px; border-top: 1px solid var(--dusk); vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; }
+  .item-name { font-weight: 700; }
+  .item-name .named { align-items: center; }
+  .item-name .icon { width: 32px; height: 32px; margin: 0 10px 0 0; }
+  .item-name .name { display: block; }
+  .kind { display: block; color: var(--mist); font-size: 12.5px; font-weight: 500; white-space: nowrap; }
+  td b { font-size: 15px; }
+  .under { display: block; font-size: 12px; color: var(--mist); }
+  td.now { color: var(--mist); }
+  td.now b { color: var(--mist); font-weight: 600; }
+  /* the column to compare against is dimmed, so the eye goes to the proposal */
+  td.proposal { background: rgb(240 232 214 / 45%); }
+  td.why { font-size: 12px; color: var(--mist); max-width: 300px; }
+  td.why span { display: block; }
+  .quiet { color: var(--mist); }
+
+  /* the three ways to show a level */
+  .dots { display: inline-flex; gap: 3px; margin-right: 5px; vertical-align: 0; }
+  .dots i { width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ridge); }
+  .dots i.on { background: var(--mist); box-shadow: none; }
+  .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 11px; margin-right: 5px; vertical-align: -1px; }
+  .bars i { width: 3px; border-radius: 1px; background: var(--ridge); }
+  .bars i:nth-child(1) { height: 5px; } .bars i:nth-child(2) { height: 8px; } .bars i:nth-child(3) { height: 11px; }
+  .bars i.on { background: var(--mist); }
+  .word { font-weight: 700; }
+  /* a thin price is a "look closer", which is what --ember means in theme.css */
+  .l1 .dots i.on, .l1 .bars i.on { background: var(--ember); }
+  .l1 .word { color: var(--ember); }
+  @media (max-width: 760px) { .wide { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="intro">
+    <h1>Usual price confidence</h1>
+    <p id="about">Loading the item list…</p>
+  </div>
+  <div class="topbar">
+    <input id="search" type="search" placeholder="Find an item" aria-label="Find an item">
+    <span><span class="seg-label">Show as</span><span class="seg" id="variant">
+      <button data-v="dots" class="on">Dots</button><button data-v="bars">Bars</button><button data-v="words">Words</button>
+    </span></span>
+    <span><span class="seg-label">Sort</span><span class="seg" id="sort">
+      <button data-s="usual" class="on">Usual price</button><button data-s="level">Confidence</button><button data-s="last">Last seen</button>
+    </span></span>
+    <label class="hide"><input type="checkbox" id="hideThin"> Hide thin</label>
+    <div class="summary" id="summary"></div>
+  </div>
+  <table id="list"></table>
+</main>
+<script src="../pricing.js"></script>
+<script src="../market.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const DAY_MS = 864e5;
+const SPREAD_AGREE = 1.5, SPREAD_WIDE = 2; // measured Nov 9: 3+ sellers, not gear, median 1.3×, 90% under 2.5×
+const WORD = { 1: 'Thin', 2: 'Decent', 3: 'Solid' };
+let facts = itemFacts({}), state = null, now = Date.now(), rows = [];
+let variant = 'dots', sortBy = 'usual';
+
+// One price per seller, as market.js counts them: their newest ask, or the middle of their sales.
+const closeSellers = (a, b) => norm(a) === norm(b) || sim(norm(a), norm(b)) >= 0.8;
+function sellerPrices(votes, days, basis) {
+  const groups = [];
+  for (const v of votes.filter(v => v.s && now - v.t <= days * DAY_MS)) {
+    const g = groups.find(g => closeSellers(g.s, v.s));
+    if (g) g.votes.push(v); else groups.push({ s: v.s, votes: [v] });
+  }
+  return groups.map(g => {
+    if (basis === 'sold') {
+      const sold = g.votes.filter(v => v.sold).map(v => v.u).sort((a, b) => a - b);
+      return sold.length ? sold[(sold.length - 1) >> 1] : null;
+    }
+    const asks = g.votes.filter(v => !v.sold);
+    return asks.length ? asks.reduce((a, b) => (b.t > a.t ? b : a)).u : null;
+  }).filter(p => p != null).sort((a, b) => a - b);
+}
+// Upper quarter over lower quarter, so one troll price can't move it.
+const spreadOf = p => (p.length < 2 ? 1 : p[p.length - 1 - ((p.length - 1) >> 2)] / p[(p.length - 1) >> 2]);
+const times = x => `${x >= 10 ? Math.round(x).toLocaleString('en-US') : x.toFixed(1)}×`;
+const sellers = n => `${n} seller${n === 1 ? '' : 's'}`;
+
+// The proposal: a level from 1 to 3, and the reasons for it, in the order they were applied.
+function confidence(m, votes, gear) {
+  if (m.basis === 'yours') return { level: 0, why: ['You set this price'] };
+  const why = [];
+  let level;
+  if (m.from < 3) { level = 1; why.push(m.from ? `Only ${sellers(m.from)} so far` : 'No seller names read'); }
+  else if (m.basis === 'sold' && m.firm) { level = 3; why.push(`Sold by ${sellers(m.from)} on 2+ days`); }
+  else if (m.basis === 'sold') { level = 2; why.push(`Sold by ${sellers(m.from)}, all on one day`); }
+  else { level = 2; why.push(`Asked by ${sellers(m.from)}, not enough sales yet`); }
+  if (m.from >= 2) {
+    const spread = spreadOf(sellerPrices(votes, m.days, m.basis));
+    if (spread > SPREAD_WIDE) { level--; why.push(`Sellers ${times(spread)} apart: down one`); }
+    else if (spread <= SPREAD_AGREE) why.push(`Sellers agree, within ${times(spread)}`);
+    else why.push(`Sellers ${times(spread)} apart`);
+  }
+  if (m.days === 14 && m.from >= 3) { if (level === 3) level = 2; why.push('Needed 1 to 2 weeks of data: at most 2'); }
+  if (m.mostlyOne && level > 1) { level--; why.push('One seller holds most of the stock: down one'); }
+  if (gear && level > 2) { level = 2; why.push('Gear, every condition mixed: at most 2'); }
+  return { level: Math.max(1, level), why };
+}
+
+const indicator = level => {
+  if (variant === 'words') return `<span class="word">${WORD[level]}</span> · `;
+  const marks = [1, 2, 3].map(i => `<i class="${i <= level ? 'on' : ''}"></i>`).join('');
+  return `<span class="${variant}" role="img" aria-label="${WORD[level]}">${marks}</span>`;
+};
+
+function build() {
+  rows = state.items.map(item => {
+    const votes = state.seen[item.name] || [];
+    const m = marketFor(votes, { now, mine: item.fm });
+    if (!m || m.price == null) return null;
+    const gear = facts.slots(item.name) != null;
+    return { item, m, set: facts.recharges(item.name), kind: facts.kind(item.name).kind, conf: confidence(m, votes, gear) };
+  }).filter(Boolean);
+}
+
+function render() {
+  const q = $('search').value.trim(), hide = $('hideThin').checked;
+  const shown = rows.filter(r => (!q || norm(r.item.name).includes(norm(q))) && !(hide && r.conf.level === 1));
+  const order = { usual: (a, b) => b.m.price - a.m.price, level: (a, b) => b.conf.level - a.conf.level || b.m.price - a.m.price, last: (a, b) => b.item.last - a.item.last }[sortBy];
+  shown.sort(order);
+
+  const count = l => rows.filter(r => r.conf.level === l).length;
+  $('summary').innerHTML = `${rows.length} items with a usual price: ${[3, 2, 1].map(l => `<span class="l${l}">${indicator(l)}</span> <b>${count(l)}</b>`).join(' &nbsp; ')}`
+    + (hide ? ` &nbsp; · showing ${shown.length}` : '');
+
+  $('list').innerHTML = `<tr><th>Item</th><th class="num">Today</th><th class="num proposal">Proposal</th><th class="why">Why (mockup only)</th><th class="num wide">Listed</th><th class="num wide">Last seen</th></tr>`
+    + shown.map(({ item, m, set, kind, conf }) => {
+      const src = usualSource(m), why = conf.why.join('. ') + '.';
+      const basis = m.basis === 'yours' ? 'set by you' : m.basis === 'sold' ? 'sold' : 'asking';
+      const now2 = `<b>${fmt(m.price)}</b><span class="under">${src.line}${set ? ' · a set' : ''}</span>`;
+      const prop = conf.level
+        ? `<b>${fmt(m.price)}</b><span class="under l${conf.level}">${indicator(conf.level)}${basis}${set ? ' · a set' : ''}</span>`
+        : `<b>${fmt(m.price)}</b><span class="under">${basis}</span>`;
+      return `<tr>
+        <td class="item-name"><span class="named">${iconTag(facts.icon(item.name))}<span><span class="name">${esc(item.name)}</span><span class="kind">${esc(kind)}</span></span></span></td>
+        <td class="num now">${now2}</td>
+        <td class="num proposal" title="${esc(why)}">${prop}</td>
+        <td class="why">${conf.why.map(w => `<span>${esc(w)}</span>`).join('')}</td>
+        <td class="num wide">${(item.listings - item.soldListings).toLocaleString('en-US')}</td>
+        <td class="num wide quiet">${agoText(now - item.last)}</td></tr>`;
+    }).join('');
+}
+
+function pick(seg, attr, set) {
+  $(seg).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $(seg).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    set(b.dataset[attr]); render();
+  });
+}
+pick('variant', 'v', v => (variant = v));
+pick('sort', 's', s => (sortBy = s));
+$('search').addEventListener('input', render);
+$('hideThin').addEventListener('change', render);
+
+Promise.all([fetch('../osms-items.json').then(r => r.json()), fetch('/api/state').then(r => r.json())]).then(([list, s]) => {
+  facts = itemFacts(list); state = s;
+  // "now" is when the snapshot was taken, so a saved one keeps its windows
+  now = Math.max(...Object.values(s.seen).flat().map(v => v.t));
+  build();
+  $('about').textContent = `Your item list as of ${new Date(now).toLocaleString()}. "Today" is the Prices page as it is now, and "Proposal" swaps the seller count for a level from 1 to 3. Hover a proposal, or read the last column, for why it got that level.`;
+  render();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colour comparison</title>
+<!-- Photos of the real app, reading test/live-shop-hover.png on a scratch database. Only the colours differ. -->
+<style>
+  @font-face { font-family: "Nunito"; src: url(../fonts/nunito-latin-wght-normal.woff2) format("woff2"); font-weight: 200 1000; }
+  body { margin: 0; padding: 20px; background: #3a3a3e; color: #f2f2f2; font: 600 15px/1.3 "Nunito", sans-serif; }
+  .pair { display: grid; grid-template-columns: repeat(2, 740px); gap: 16px 20px; justify-content: center; }
+  h1 { font-size: 18px; margin: 0; }
+  .ingame { display: flex; height: 464px; background: #000; }
+  .ingame i { flex: 1; background: url(../test/live-shop-hover.png) -540px -258px no-repeat; }
+  .ingame img { width: 340px; height: 464px; object-fit: cover; object-position: top; flex: none; }
+  .wide { width: 740px; display: block; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="pair">
+  <h1>Tooltip blue (in the app now)</h1>
+  <h1>OSMS cream (trial)</h1>
+  <div class="ingame"><i></i><img src="shots/blue-card.png" alt="Stall card in tooltip blue"></div>
+  <div class="ingame"><i></i><img src="shots/osms-card.png" alt="Stall card in OSMS cream"></div>
+  <img class="wide" src="shots/blue-prices-open.png" alt="Prices tab in tooltip blue">
+  <img class="wide" src="shots/osms-prices-open.png" alt="Prices tab in OSMS cream">
+  <img class="wide" src="shots/blue-scanner.png" alt="Scanner tab in tooltip blue">
+  <img class="wide" src="shots/osms-scanner.png" alt="Scanner tab in OSMS cream">
+</div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{
+  "name": "maple-scanner",
+  "productName": "MapleScanner",
+  "version": "0.1.0",
+  "description": "Live prices for MapleStory Classic shops, read from your game window",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "main": "desktop/main.js",
+  "scripts": {
+    "start": "electron .",
+    "serve": "node serve.js",
+    "test": "node --test test/pricing.test.js test/market.test.js test/scanner.test.js",
+    "items": "node tools/update-items.js",
+    "dist": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "tesseract.js": "^5.1.1"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "local.maplescanner",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**",
+      "index.html",
+      "prices.html",
+      "*.css",
+      "fonts/**",
+      "*.js",
+      "items.csv",
+      "osms-items.json",
+      "package.json",
+      "LICENSE",
+      "!node_modules/@tesseract.js-data/eng/4.0.0/**",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "MapleScanner.exe"
+    }
+  }
+}

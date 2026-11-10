@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MapleScanner design</title>
+<!-- Design proposal only. theme.css is the real source. -->
+<style>
+  @font-face { font-family: "Nunito"; src: url(../fonts/nunito-latin-wght-normal.woff2) format("woff2"); font-weight: 200 1000; }
+  @font-face { font-family: "Fredoka"; src: url(../fonts/fredoka-latin-wght-normal.woff2) format("woff2"); font-weight: 300 700; }
+  :root {
+    /* Surfaces: the game's tooltip blue, taken dark enough to read beside a bright game */
+    --night: #1b1e45;
+    --dusk: #282c62;
+    --ridge: #474c8c;
+    /* Text: the shop panel's cool white */
+    --cloud: #eef1fa;
+    --mist: #aab2d8;
+    /* Meaning: taken from the game's own bars and coin, lifted to read on --night */
+    --meso: #f2c82f;   /* coin: this app's own actions */
+    --exp: #b6e834;    /* EXP bar: good for the buyer */
+    --hp: #ff7f70;     /* HP bar: over the usual price */
+    --ember: #f6a44f;  /* orange buttons: look closer */
+    --sky: #86c8ff;    /* MP bar: where to walk */
+    --on-bright: #1b1e45;
+
+    --display: "Fredoka", "Segoe UI", sans-serif;
+    --text: "Nunito", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--night); }
+  body { margin: 0; background: var(--night); color: var(--cloud); font: 500 14px/1.45 var(--text); font-variant-numeric: tabular-nums; }
+  p { margin: 0; }
+
+  /* ---------- proposal page ---------- */
+  .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px 64px; }
+  .page > h1 { font: 600 30px/1.15 var(--display); margin: 0 0 6px; }
+  .switch { display: flex; gap: 6px; margin-bottom: 16px; }
+  .switch a { color: var(--cloud); text-decoration: none; padding: 6px 12px; border-radius: 7px; box-shadow: inset 0 0 0 1px var(--ridge); }
+  .switch a[aria-current] { background: var(--dusk); font-weight: 700; }
+  .lead { color: var(--mist); font-size: 16px; max-width: 64ch; margin-bottom: 24px; }
+  .page > h2 { font: 600 24px/1.2 var(--display); margin: 56px 0 6px; }
+  .page > p { color: var(--mist); max-width: 68ch; margin-bottom: 18px; }
+  figure { margin: 0; }
+  figcaption { color: var(--mist); font-size: 13px; margin-top: 8px; max-width: 34ch; }
+
+  .hero { display: flex; align-items: stretch; border-radius: 12px; overflow: hidden; background: #000; }
+  .game { flex: 1 1 auto; min-width: 0; background: url(../test/live-shop-hover.png) -540px -258px no-repeat; }
+  .hero .stall { flex: none; border-radius: 0; box-shadow: none; }
+  .samples { color: var(--mist); font-size: 13px; margin-top: 8px; }
+
+  .states { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 28px 24px; align-items: start; }
+
+  .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .swatch { display: flex; gap: 10px; align-items: center; }
+  .chip { width: 38px; height: 38px; border-radius: 8px; flex: none; border: 1px solid var(--ridge); }
+  .swatch b { display: block; font-weight: 600; }
+  .swatch span { color: var(--mist); font-size: 13px; }
+
+  .say { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 0 32px; }
+  .say .row { border-bottom: 1px solid var(--dusk); }
+
+  .type { border-top: 1px solid var(--dusk); }
+  .type div { display: grid; grid-template-columns: 250px 1fr; gap: 16px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--dusk); }
+  .type span { color: var(--mist); font-size: 13px; }
+
+  table.pop { border-collapse: collapse; width: 100%; font-size: 14px; }
+  .pop th { text-align: left; font: 600 18px/1.2 var(--display); padding: 22px 16px 8px 0; }
+  .pop td { vertical-align: top; padding: 9px 16px 9px 0; border-top: 1px solid var(--dusk); }
+  .pop td:first-child { font-weight: 600; width: 190px; }
+  .pop td:last-child { color: var(--mist); }
+
+  /* ---------- stall card: the small always-on-top window ---------- */
+  .stall { width: 340px; background: var(--night); color: var(--cloud); border-radius: 10px; box-shadow: 0 0 0 1px var(--ridge); font-size: 14px; overflow: hidden; display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; color: var(--mist); font-size: 12px; }
+  .bar .live { width: 8px; height: 8px; border-radius: 50%; background: var(--exp); flex: none; }
+  .bar .live.off { background: var(--ridge); }
+  .bar .live.bad { background: var(--ember); }
+  .bar .grow { flex: 1; min-width: 0; }
+  .bar button { all: unset; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 4px; color: var(--mist); }
+  .shop { padding: 2px 12px 8px; }
+  .shop h3 { font: 600 19px/1.2 var(--display); margin: 0; overflow-wrap: anywhere; }
+  .shop p { color: var(--mist); font-size: 13px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .shop p b { color: var(--exp); font-weight: 600; }
+  .rows { padding: 0 12px 6px; }
+  .row { padding: 7px 0 8px; border-top: 1px solid var(--dusk); }
+  .line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .name { min-width: 0; overflow-wrap: anywhere; }
+  .price { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .under { display: flex; align-items: center; gap: 10px; margin-top: 3px; min-height: 18px; }
+  .why { color: var(--mist); font-size: 12px; margin-top: 2px; }
+  .why.inline { flex: 1; min-width: 0; margin: 0; }
+  .walk { color: var(--sky); font-size: 12.5px; margin-top: 3px; font-weight: 500; }
+  .row.sold { color: var(--mist); }
+  .row.sold .price { font-weight: 500; text-decoration: line-through; }
+
+  /* The price rail: where this price sits among everything seen, on a log scale,
+     so a 9,999,999 troll price stays visible without squashing the rest. */
+  .rail { position: relative; flex: 1; min-width: 0; height: 14px; }
+  .rail::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--ridge); border-radius: 1px; }
+  .rail.thin::before { background: none; border-top: 2px dotted var(--ridge); height: 0; }
+  .rail .sold-at { position: absolute; top: 1px; width: 2px; height: 12px; margin-left: -1px; background: var(--cloud); }
+  .rail .here { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--dot, var(--mist)); box-shadow: 0 0 0 2px var(--bg-under, var(--night)); }
+  .rail.empty { visibility: hidden; }
+
+  .tag { font: 600 13px/18px var(--display); white-space: nowrap; flex: none; }
+  .tag.deal { background: var(--exp); color: var(--on-bright); padding: 0 7px; border-radius: 4px; }
+  .tag.check { background: var(--ember); color: var(--on-bright); padding: 0 7px; border-radius: 4px; }
+  .tag.over { color: var(--hp); }
+  .tag.quiet { color: var(--mist); font-weight: 500; }
+
+  /* Item card: appears inside the stall card while the player hovers an item */
+  .item { margin: 0 8px 8px; padding: 10px 12px 12px; --bg-under: var(--dusk); background: var(--dusk); border-radius: 8px; box-shadow: inset 0 1px 0 var(--ridge); }
+  .item h4 { font: 600 16px/1.25 var(--display); margin: 0; }
+  .item .state { color: var(--mist); font-size: 13px; margin-bottom: 9px; }
+  .big { position: relative; height: 20px; margin: 0 2px; }
+  .big::before { content: ""; position: absolute; left: 0; right: 0; top: 9px; height: 2px; background: var(--ridge); }
+  .big .sold-at { position: absolute; top: 3px; width: 2px; height: 14px; margin-left: -1px; background: var(--cloud); }
+  .big .here { position: absolute; top: 3px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--exp); box-shadow: 0 0 0 2px var(--dusk); }
+  .ends { display: flex; justify-content: space-between; color: var(--mist); font-size: 12px; margin-bottom: 8px; }
+  .fact { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; font-size: 13px; }
+  .fact span:first-child { color: var(--mist); }
+  .fact span:last-child { font-weight: 700; white-space: nowrap; }
+  .item .walk { margin: 6px 0 0; }
+
+  /* Problem strip: one slot, stays until the problem is fixed */
+  .problem { margin: 0 8px 8px; padding: 8px 10px; border-radius: 8px; background: var(--dusk); box-shadow: inset 3px 0 0 var(--ember); font-size: 13px; }
+  .problem b { font-weight: 600; }
+
+  .waiting { padding: 2px 12px 12px; color: var(--mist); font-size: 13px; }
+  .npc-note { font-size: 12px; color: var(--mist); margin-top: 2px; }
+
+  /* ---------- main window ---------- */
+  .win { background: var(--night); border-radius: 10px; box-shadow: 0 0 0 1px var(--ridge); overflow: hidden; }
+  .tabs { display: flex; align-items: center; gap: 4px; padding: 10px 16px; border-bottom: 1px solid var(--dusk); }
+  .tabs strong { font: 600 18px/1 var(--display); margin-right: 18px; }
+  .tabs a { color: var(--mist); padding: 5px 10px; border-radius: 6px; }
+  .tabs a.on { background: var(--dusk); color: var(--cloud); font-weight: 600; }
+  .home { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; padding: 24px; align-items: start; }
+  .home h3 { font: 600 24px/1.2 var(--display); margin: 0 0 6px; }
+  .home p { color: var(--mist); max-width: 52ch; }
+  .go { all: unset; display: inline-block; margin: 16px 10px 0 0; background: var(--meso); color: var(--on-bright); font: 600 16px/1 var(--display); padding: 11px 18px; border-radius: 7px; }
+  .plain { all: unset; display: inline-block; color: var(--cloud); box-shadow: inset 0 0 0 1px var(--ridge); padding: 8px 13px; border-radius: 7px; }
+  .steps { margin: 20px 0 0; padding: 0 0 0 20px; color: var(--mist); }
+  .steps li { margin-bottom: 4px; }
+  .drop { border: 2px dashed var(--ridge); border-radius: 8px; padding: 16px; color: var(--mist); text-align: center; font-size: 13px; }
+  .foot { padding: 10px 24px 14px; color: var(--mist); font-size: 12px; border-top: 1px solid var(--dusk); }
+
+  .tools { display: flex; gap: 10px; padding: 14px 16px; flex-wrap: wrap; align-items: center; }
+  .field { background: var(--dusk); color: var(--mist); padding: 6px 10px; border-radius: 6px; min-width: 220px; }
+  .tools .plain { padding: 6px 11px; }
+  .grow { flex: 1; }
+  table.db { border-collapse: collapse; width: 100%; }
+  .db th { text-align: left; color: var(--mist); font-weight: 500; font-size: 13px; padding: 6px 16px; }
+  .db td { padding: 8px 16px; border-top: 1px solid var(--dusk); }
+  .db .n { text-align: right; white-space: nowrap; }
+  .db .railcell { width: 220px; }
+  .db .new { color: var(--ember); font-size: 12px; font-weight: 600; margin-left: 8px; }
+
+  .dialog { background: var(--dusk); border-radius: 10px; box-shadow: 0 0 0 1px var(--ridge); padding: 16px; max-width: 420px; }
+  .dialog h3 { font: 600 18px/1.2 var(--display); margin: 0 0 4px; }
+  .dialog p { color: var(--mist); font-size: 13px; margin-bottom: 12px; }
+  .picks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .pick { background: var(--night); border-radius: 6px; padding: 6px; font-size: 12px; }
+  .pick i { display: block; height: 72px; border-radius: 4px; margin-bottom: 5px; background: url(../test/live-shop-hover.png) -900px -300px / 960px auto; }
+  .pick:nth-child(2) i { background: var(--ridge); }
+  .right { text-align: right; }
+  .danger { all: unset; display: inline-block; background: var(--hp); color: var(--on-bright); font-weight: 600; padding: 8px 13px; border-radius: 7px; margin-left: 6px; }
+
+  @media (max-width: 860px) {
+    .hero { flex-direction: column; }
+    .game { flex-basis: 420px; height: 420px; }
+    .hero .stall { width: 100%; }
+    .home { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>MapleScanner design</h1>
+  <nav class="switch" aria-label="Colours"><a href="?" id="showBlue">Tooltip blue</a><a href="?colours=osms" id="showOsms">OSMS cream</a></nav>
+  <p class="lead" id="lead">One idea: it should feel like a piece of the game's own interface that happens to know prices. Dark tooltip blue, the game's own bar colours for meaning, and a rail that answers "is this good?" before you read a number.</p>
+
+  <div class="hero">
+    <div class="game" role="img" aria-label="Real capture of the game with a shop open"></div>
+    <div class="stall" id="hero"></div>
+  </div>
+  <p class="samples">True size beside a real capture. Shop and listings are read from that capture. Market prices and channel are made up for this mockup.</p>
+
+  <h2>Colours</h2>
+  <p id="colourNote">Measured from the capture, then lifted to stay readable on the dark panel. Colour is never the only signal: every verdict also has words.</p>
+  <div class="swatches" id="swatches"></div>
+
+  <h2>Verdicts</h2>
+  <p>Only a deal or a warning gets a filled tag, so a stall full of "fair" looks calm and a deal stands out at a glance. The tall tick is what it sold for, the dot is this listing, and a dotted rail means thin data. No rail at all means we don't know yet. NPC prices below are real, market prices are made up.</p>
+  <div class="say" id="say"></div>
+
+  <h2>Fonts</h2>
+  <p>Prices come first. Nunito keeps 0, 3, 6 and 8 apart at small sizes, its digits are all the same width so prices line up, and its rounded ends suit the game. Fredoka adds character, for headings and verdicts only. Both are open licence and get bundled, because the app works offline.</p>
+  <div class="type">
+    <div><span>Fredoka 600, 24 px</span><p style="font:600 24px/1.2 var(--display)">Price database</p></div>
+    <div><span>Fredoka 600, 19 px</span><p style="font:600 19px/1.2 var(--display)">Mushmom Spore</p></div>
+    <div><span>Fredoka 600, 13 px</span><p style="font:600 13px/1.2 var(--display)">deal −31%</p></div>
+    <div><span>Nunito 700, 15 px</span><p style="font-weight:700;font-size:15px">18,888 &nbsp; 9,999,999 &nbsp; 6,380,186</p></div>
+    <div><span>Nunito 500, 14 px</span><p>Fireman's Axe, Jr. Necki Skin, Sapphire Ore</p></div>
+    <div><span>Nunito 500, 12 px</span><p style="font-size:12px;color:var(--mist)">vs 48 sold, 4 sellers, 3 days</p></div>
+  </div>
+
+  <h2>Stall card states</h2>
+  <p>All true size. The card shrinks when there's nothing to show, so it isn't sitting beside the game as an empty box.</p>
+  <div class="states" id="states"></div>
+
+  <h2>Popups</h2>
+  <p>The player's eyes and mouse are on the game, so the rule is: nothing may take focus from the game, and nothing may ask for a click while they're playing.</p>
+  <table class="pop">
+    <tr><th colspan="2">Needed while playing</th></tr>
+    <tr><td>Stall card</td><td>The small always-on-top window. Shows the open shop, and shrinks to one line between shops. Never takes keyboard focus. Replaces today's plain pop-out with its Windows title bar.</td></tr>
+    <tr><td>Item card</td><td>Sits inside the stall card, not a new window. Appears while an item is hovered in the game and stays until the next one, so the player can move their mouse away and still read it.</td></tr>
+    <tr><td>Problem strip</td><td>One slot inside the stall card, for frozen picture, no channel yet, database offline. Stays until fixed, says what to do, needs no click.</td></tr>
+    <tr><th colspan="2">Needed only outside play</th></tr>
+    <tr><td>Game picker</td><td>Only when the game window can't be found by itself. Already exists, gets restyled.</td></tr>
+    <tr><td>Delete confirmation</td><td>Replaces the Windows confirm box in the price database. Says what's lost, and the red button names the action.</td></tr>
+    <tr><td>Result line</td><td>"Imported 12 items and 340 listings." A line in the page that fades away. Already exists as text, gets a fixed place.</td></tr>
+    <tr><th colspan="2">Deliberately left out</th></tr>
+    <tr><td>Windows notifications, sounds</td><td>A shop is only read once the player opens it, so there's nothing to alert them about. Alerts belong with the watch list, which is deferred.</td></tr>
+    <tr><td>Deal popup</td><td>Deals already sort to the top of the card with the loudest colour. A second signal would only cover the game.</td></tr>
+    <tr><td>"List it at" prompt</td><td>Ruled out: a single number from the tool would become the market's price.</td></tr>
+    <tr><td>Setup wizard, tips</td><td>Setup is one button on the home page. The problem strip handles anything that goes wrong later.</td></tr>
+  </table>
+  <div class="states" style="margin-top:24px">
+    <figure><div class="dialog">
+      <h3>Which window is the game?</h3>
+      <p>Couldn't find MapleStory by itself. Pick its window.</p>
+      <div class="picks"><div class="pick"><i></i>MapleStory (2)</div><div class="pick"><i></i>Discord</div></div>
+      <div class="right"><span class="plain">Cancel</span></div>
+    </div><figcaption>Game picker</figcaption></figure>
+    <figure><div class="dialog">
+      <h3>Delete Lionheart?</h3>
+      <p>Its 14 listings go too, and prices for it start over. This can't be undone.</p>
+      <div class="right"><span class="plain">Keep it</span><span class="danger">Delete item</span></div>
+    </div><figcaption>Delete confirmation</figcaption></figure>
+  </div>
+
+  <h2>Main window</h2>
+  <p>Scanner and prices become two tabs in one window, instead of a page that opens another page. Most of today's explanation text moves out of the way, and the OSMS credit stays on this page, as it has to.</p>
+  <div class="win">
+    <div class="tabs"><strong>MapleScanner</strong><a class="on">Scanner</a><a>Prices</a></div>
+    <div class="home">
+      <div>
+        <h3>Ready when the game is</h3>
+        <p>Start the game in a window at the default UI size, then start scanning. The picture stays on this PC.</p>
+        <span class="go">Start scanning</span><span class="plain">Pop out stall card</span>
+        <ol class="steps">
+          <li>Place the stall card next to the game.</li>
+          <li>Walk into a shop and scroll its list.</li>
+          <li>Hover an item to see what it's worth.</li>
+        </ol>
+      </div>
+      <div class="drop">Or paste a screenshot with Ctrl+V, or drop one here. Screenshots of the same shop add up.</div>
+    </div>
+    <div class="foot">Item data: OSMS Data Explorer (osmsdataexplorer.com), CC BY 4.0, reduced to item names, NPC prices, scroll rates, upgrade slots and main stat lines. Game content is © Nexon. Unofficial, not affiliated with Nexon.</div>
+  </div>
+  <div class="win" style="margin-top:20px">
+    <div class="tabs"><strong>MapleScanner</strong><a>Scanner</a><a class="on">Prices</a></div>
+    <div class="tools"><span class="field">Search items</span><span class="field" style="min-width:150px">Seen in shops</span><span class="grow"></span><span class="plain">Export backup</span><span class="plain">Import backup</span></div>
+    <table class="db" id="db"></table>
+  </div>
+</div>
+
+<script>
+  // A trial colour set loads on top of the same design, so nothing else changes.
+  const osms = new URLSearchParams(location.search).get('colours') === 'osms';
+  document.getElementById(osms ? 'showOsms' : 'showBlue').setAttribute('aria-current', 'true');
+  if (osms) {
+    const trial = document.createElement('link');
+    trial.rel = 'stylesheet';
+    trial.href = 'theme-osms.css';
+    document.head.append(trial);
+    document.getElementById('lead').textContent = 'The same design in the colours of OSMS Data Explorer: its cream cards, brown text, burnt orange and link blue.';
+    document.getElementById('colourNote').textContent = 'Surfaces, text and link blue are sampled from the OSMS page. The orange is darkened a touch so it can carry text, and green, red and mustard are chosen to sit with it. Colour is never the only signal: every verdict also has words.';
+  }
+
+  // Mockup data only. The real numbers come from market.js.
+  const pos = (v, lo, hi) => hi === lo ? 50 : Math.max(0, Math.min(100, (Math.log(v) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)) * 100));
+  const rail = r => {
+    if (!r) return '<div class="rail empty"></div>';
+    const lo = Math.min(r.lo, r.at), hi = Math.max(r.hi, r.at);
+    return `<div class="rail ${r.thin ? 'thin' : ''}" style="--dot:var(${r.dot || '--mist'})">
+      ${r.sold ? `<span class="sold-at" style="left:${pos(r.sold, lo, hi)}%"></span>` : ''}
+      <span class="here" style="left:${pos(r.at, lo, hi)}%"></span></div>`;
+  };
+  const row = x => `<div class="row ${x.sold ? 'sold' : ''}">
+    <div class="line"><span class="name">${x.name}</span><span class="price">${x.price}</span></div>
+    <div class="under">${x.rail ? rail(x.rail) : `<div class="why inline">${x.why || ''}</div>`}${x.tag ? `<span class="tag ${x.kind}">${x.tag}</span>` : ''}</div>
+    ${x.rail && x.why ? `<div class="why">${x.why}</div>` : ''}
+    ${x.walk ? `<div class="walk">${x.walk}</div>` : ''}</div>`;
+
+  const necki = { name: 'Jr. Necki Skin', price: '33', tag: 'deal −31%', kind: 'deal', why: 'vs 48 sold, 4 sellers, 3 days', rail: { lo: 30, hi: 120, at: 33, sold: 48, dot: '--exp' } };
+  const lion = { name: 'Lionheart', price: '18,888', tag: 'deal −37%', kind: 'deal', why: 'clean, vs 30K sold, 4 sellers, 7 days', rail: { lo: 24000, hi: 9999999, at: 18888, sold: 30000, dot: '--exp' } };
+  const ore = { name: 'Sapphire Ore', price: '288', tag: 'fair', kind: 'quiet', walk: 'Cheaper: 240 at CH.4 FM 3, 12 min ago', rail: { lo: 220, hi: 500, at: 288, sold: 250, dot: '--mist' } };
+  const cass = { name: 'Cass', price: '9,999', tag: 'hover for stats', kind: 'quiet', why: 'seen 8K–42K, stats differ' };
+  const axe = { name: "Fireman's Axe", price: '6,999', tag: 'hover for stats', kind: 'quiet', why: 'NPC pays 5,500' };
+
+  const dots = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  const cross = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  const bar = (text, cls = '') => `<div class="bar"><span class="live ${cls}"></span><span class="grow">${text}</span><button aria-label="Shrink">${dots}</button><button aria-label="Close">${cross}</button></div>`;
+  const shopHead = `<div class="shop"><h3>Mushmom Spore</h3><p><span>by weinak</span><span>CH.10 FM 1</span><b>2 deals</b></p></div>`;
+
+  const itemCard = `<div class="item">
+    <h4>Lionheart</h4><p class="state">Clean, 7 of 7 slots</p>
+    <div class="big"><span class="sold-at" style="left:${pos(30000, 18888, 9999999)}%"></span><span class="here" style="left:2%"></span></div>
+    <div class="ends"><span>18,888</span><span>9.99M</span></div>
+    <div class="fact"><span>Sold for, 3 sales</span><span>30K</span></div>
+    <div class="fact"><span>Usually asked from</span><span>31K</span></div>
+    <div class="fact"><span>From 4 sellers</span><span>24K to 9.99M</span></div>
+    <div class="fact"><span>NPC pays</span><span>9,000</span></div></div>`;
+
+  document.getElementById('hero').innerHTML =
+    bar('Scanning') + itemCard + shopHead + `<div class="rows">${[lion, necki, ore, cass, axe].map(row).join('')}</div>`;
+
+  document.getElementById('swatches').innerHTML = (osms ? [
+    ['--night', 'Card', 'OSMS card cream'], ['--dusk', 'Page', 'OSMS page: raised areas'], ['--ridge', 'Edge', 'OSMS border: edges, rails'],
+    ['--cloud', 'Text', 'OSMS brown: main text'], ['--mist', 'Muted', 'second text'], ['--meso', 'Orange', 'OSMS orange: our buttons'],
+    ['--exp', 'Green', 'deals'], ['--hp', 'Red', 'overpriced'], ['--ember', 'Mustard', 'check it'], ['--sky', 'Blue', 'OSMS link: where to walk'],
+  ] : [
+    ['--night', 'Night', 'tooltip blue, darkened'], ['--dusk', 'Dusk', 'cards, row lines'], ['--ridge', 'Ridge', 'edges, rails'],
+    ['--cloud', 'Cloud', 'main text'], ['--mist', 'Mist', 'second text'], ['--meso', 'Meso', 'coin: our buttons'],
+    ['--exp', 'EXP', 'EXP bar: deals'], ['--hp', 'HP', 'HP bar: overpriced'], ['--ember', 'Ember', 'shop buttons: check it'], ['--sky', 'Sky', 'MP bar: where to walk'],
+  ]).map(([v, n, d]) => `<div class="swatch"><div class="chip" style="background:var(${v})"></div><div><b>${n}</b><span>${d}</span></div></div>`).join('');
+
+  document.getElementById('say').innerHTML = [
+    { name: 'Red Potion', price: '4', tag: 'below NPC', kind: 'deal', why: 'NPC pays 5', rail: { lo: 8, hi: 40, at: 4, sold: 12, dot: '--exp' } },
+    { name: 'Steely Throwing Knives', price: '310K', tag: 'deal −22%', kind: 'deal', why: 'vs 400K sold, 5 sellers, 3 days', rail: { lo: 300000, hi: 9999999, at: 310000, sold: 400000, dot: '--exp' } },
+    { name: 'Mithril Ore', price: '190', tag: 'fair', kind: 'quiet', rail: { lo: 150, hi: 400, at: 190, sold: 200, dot: '--mist' } },
+    { name: 'Evil Skull', price: '2M', tag: '+43%', kind: 'over', why: 'vs 1.4M low ask, 3 sellers, 7 days', rail: { lo: 1100000, hi: 9999999, at: 2000000, dot: '--hp' } },
+    { name: 'Icicle', price: '900', tag: 'check item', kind: 'check', why: 'vs 90K sold, 4 sellers, 3 days', rail: { lo: 70000, hi: 300000, at: 900, sold: 90000, dot: '--ember' } },
+    { name: 'Gold Earrings', price: '1,237', tag: 'hover to check', kind: 'check' },
+    { name: 'Emerald Earrings', price: '320K', tag: 'hover for stats', kind: 'quiet', why: 'seen 20K–900K, stats differ' },
+    { name: 'Gold Ore', price: '700', tag: '2 sellers, 650–900', kind: 'quiet', why: 'not enough sellers for a usual price', rail: { lo: 650, hi: 900, at: 700, thin: true, dot: '--mist' } },
+    { name: 'Red Sauna Robe', price: '10M', tag: 'no price data', kind: 'quiet', why: 'NPC pays 5,400' },
+    { name: 'Sapphire Ore', price: '250', tag: 'sold', kind: 'quiet', sold: true },
+  ].map(row).join('');
+
+  const fig = (html, cap) => `<figure><div class="stall">${html}</div><figcaption>${cap}</figcaption></figure>`;
+  document.getElementById('states').innerHTML = [
+    fig(bar('Scanning') + '<p class="waiting">Open a shop in the game.</p>', 'Between shops: one line'),
+    fig(bar('Not scanning', 'off') + '<p class="waiting">Press Start scanning in the main window.</p>', 'Not scanning'),
+    fig(bar('Scanning', 'bad') + `<div class="problem"><b>Game picture frozen for 12 seconds.</b> Stop scanning, then start again.</div>` + shopHead.replace('<b>2 deals</b>', ''), 'Problem strip: stays until fixed'),
+    fig(bar('Scanning') + `<div class="problem">Open Change Channel in the game once, so shops save their channel.</div><div class="shop"><h3>Mushmom Spore</h3><p><span>by weinak</span><span>FM 1</span></p></div>`, 'Hint: asks the player, never guesses'),
+    fig(bar('Scanning') + `<div class="shop"><h3>NPC shop</h3><p><span>Sell it here or on the Free Market?</span></p></div><div class="rows">
+      <div class="row"><div class="line"><span class="name">Sapphire Ore</span><span class="tag deal">FM about 250</span></div><div class="npc-note">NPC pays 120</div></div>
+      <div class="row"><div class="line"><span class="name">Blue Potion</span><span class="tag quiet">sell here</span></div><div class="npc-note">NPC pays 22</div></div>
+      <div class="row"><div class="line"><span class="name">Mithril Ore</span><span class="tag quiet">1 seller, 190</span></div><div class="npc-note">NPC pays 40</div></div></div>`, 'NPC shop'),
+  ].join('');
+
+  const dbRow = (name, usual, r, sellers, seen, isNew) => `<tr><td>${name}${isNew ? '<span class="new">new name</span>' : ''}</td><td class="n">${usual}</td><td class="railcell">${rail(r)}</td><td class="n">${sellers}</td><td class="n">${seen}</td></tr>`;
+  document.getElementById('db').innerHTML = `<tr><th>Item</th><th class="n">Usual price</th><th>Range seen</th><th class="n">Sellers</th><th class="n">Last seen</th></tr>` + [
+    dbRow('Jr. Necki Skin', '48', { lo: 30, hi: 120, at: 48, sold: 48, dot: '--mist' }, 4, '2 min ago'),
+    dbRow('Sapphire Ore', '250', { lo: 220, hi: 500, at: 250, sold: 250, dot: '--mist' }, 6, '2 min ago'),
+    dbRow('Lionheart', 'by stats', null, 4, '2 min ago'),
+    dbRow('Gold Ore', 'not enough sellers', { lo: 650, hi: 900, at: 700, thin: true, dot: '--mist' }, 2, '1 h ago'),
+    dbRow('Green Pilfer oe', '', null, 1, '1 h ago', true),
+  ].join('');
+</script>
+</body>
+</html>
