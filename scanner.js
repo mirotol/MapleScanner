@@ -351,6 +351,29 @@ function endAtGap(img, r) {
 }
 
 // Small fingerprint so an unchanged cell is never read twice.
+// The game's glove cursor, or anything else drawn over a row's text, hides letters, and a price
+// with digits hidden reads as a lower one: a hovered `1 for 19,999` read as 195 and as 1
+// (test/cursor-price-*.webp, Nov 11), which the card called a deal. A row's own colours give a
+// cover away. A row for sale is dark text on blue-grey with nothing pure white: no column of a
+// clean cell had more than 4 white pixels on any screenshot in test/, and the glove gave 11 or
+// more columns of 6 and up. A sold row is pale grey text on white with nothing dark: no clean
+// cell had a pixel under 150, and the glove's outline gave 27 or more under 100.
+// Returns how far into the text the cover starts, or -1 with nothing on it.
+function coverStart(img, r, s, sold) {
+  let first = -1, count = 0;
+  for (let x = 0; x < r.w; x++) {
+    let n = 0;
+    for (let y = r.y; y < r.y + r.h; y++) {
+      const i = (y * img.width + r.x + x) * 4, d = img.data;
+      if (sold ? 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < 100 : isGloveWhite(d[i], d[i + 1], d[i + 2])) n++;
+    }
+    if (sold ? n === 0 : n < 6 * s) continue;
+    if (first < 0) first = x;
+    count += sold ? n : 1;
+  }
+  return count >= (sold ? 8 * s * s : 4 * s) ? first : -1;
+}
+
 function cellHash(img, r) {
   let h = 2166136261;
   for (let y = r.y; y < r.y + r.h; y += 2) for (let x = r.x; x < r.x + r.w; x += 2) {
@@ -435,9 +458,12 @@ const PLAYER_PRICE = new RegExp(String.raw`([\dOoIl|SB,.]+)\s*f[o0]r\s*(${PRICE}
 // number is a misread, such as an extra digit.
 const MAX_ASK = 499999999999;
 
-function parsePlayerPrice(text) {
+// `covered` is for text that stops at something drawn over the row: the price then needs the
+// start of "mesos" after it, or its last digits may be under the cover.
+function parsePlayerPrice(text, covered = false) {
   const m = text.match(PLAYER_PRICE);
   if (!m) return null;
+  if (covered && !/^\s*m/i.test(text.slice(m.index + m[0].length))) return null;
   // The row ends in "…" when it's too long ("1 for 499,999,999,999 me..."). Run straight into the
   // price, the "…" means digits are missing, and a shortened price looks like a deal.
   if (/(\.\.|…)$/.test(m[2]) || /^(\.\.|…)/.test(text.slice(m.index + m[0].length))) return null;
@@ -544,11 +570,20 @@ class ShopReader {
         if (!nameV || (priceR && !priceV)) continue;
         const stats = grayStats(img, nameV);
         if (stats.hi - stats.lo < 40) continue; // empty slot
-        const name = cleanName(await this.read(source, img, endAtGap(img, nameV)));
-        // NPC prices come from the item data, so only a player's price is read
-        const parsed = priceV ? parsePlayerPrice(await this.read(source, img, endAtGap(img, priceV))) : { qty: 1, price: null };
-        if (name.length < 3 || !parsed) continue;
         const sold = shop.kind === 'player' && stats.hi > 232;
+        // Only the text itself counts: a cursor resting further along the row hides nothing. With
+        // something on the text, only what's left of it is read. The name is then a clipped one,
+        // and the price only counts when "mesos" starts after it, so no digit is under the cover.
+        const open = r => {
+          const text = endAtGap(img, r), at = coverStart(img, text, s, sold);
+          return at < 0 ? text : { ...text, w: at - Math.round(3 * s), cut: true };
+        };
+        const nameT = open(nameV), priceT = priceV && open(priceV);
+        if (nameT.w < 1 || (priceT && priceT.w < 1)) continue;
+        const name = cleanName(await this.read(source, img, nameT));
+        // NPC prices come from the item data, so only a player's price is read
+        const parsed = priceT ? parsePlayerPrice(await this.read(source, img, priceT), priceT.cut) : { qty: 1, price: null };
+        if (name.length < 3 || !parsed) continue;
         const icon = rect(a.x + (list.nameX - 60) * s, a.y + (list.nameY - 4 + dy) * s, 52 * s, 50 * s);
         const iconTier = isCutOff(name) && inFrame(icon) ? tierFromIcon(iconColour(img, icon), sold) : null;
         const full = isCutOff(name) && fullScrollName(name, iconTier);
@@ -558,7 +593,7 @@ class ShopReader {
           partial: full ? name : null, // what was really read, so a tooltip can still correct the tier
           iconTier,
           cut: isCutOff(name) && !full,
-          clipped: nameV !== nameR, // part of the name may be under a tooltip
+          clipped: nameV !== nameR || !!nameT.cut, // part of the name may be under a tooltip or the cursor
           hovered: underCursor(a, list, i),
           sold,
           ...parsed,

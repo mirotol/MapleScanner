@@ -92,3 +92,38 @@ test('anything else white near a tooltip is not the cursor', () => {
   assert.equal(findCursor(picture(700, 900, [{ x: 203, y: 400, w: 12, h: 14, rgb: WHITE }]), tip, 1), null, 'a letter');
   assert.equal(findCursor(picture(700, 900, [...glove(203, 270), ...glove(203, 480)]), tip, 1), null, 'two could be either');
 });
+
+// A shop row as the game draws it: dark text on blue-grey for sale, pale grey text on white sold.
+const ROW = [200, 212, 224], INK = [40, 40, 40], SOLD_ROW = [246, 246, 246], SOLD_INK = [200, 200, 200];
+const BLACK = [0, 0, 0];
+function row(sold, over = []) {
+  const letters = [];
+  for (let x = 104; x < 260; x += 9) letters.push({ x, y: 104, w: 5, h: 15, rgb: sold ? SOLD_INK : INK });
+  return picture(400, 160, [{ x: 100, y: 100, w: 233, h: 30, rgb: sold ? SOLD_ROW : ROW }, ...letters, ...over]);
+}
+// the glove with its black outline, which is all that shows of it on a white sold row
+const outlined = (x, y) => [{ x: x - 1, y: y - 1, w: 18, h: 30, rgb: BLACK }, ...glove(x, y)];
+
+test('the cursor over a row\'s text is found, and where it starts', () => {
+  const { coverStart } = scanner;
+  const cell = { x: 100, y: 100, w: 233, h: 24 };
+  for (const sold of [false, true]) {
+    assert.equal(coverStart(row(sold), cell, 1, sold), -1, `a clean ${sold ? 'sold ' : ''}row`);
+    const at = coverStart(row(sold, outlined(170, 98)), cell, 1, sold);
+    assert.ok(at >= 68 && at <= 73, `on the digits of a ${sold ? 'sold ' : ''}row: ${at}`);
+  }
+  // a white line across the cell, like the edge between two rows, is no cover
+  assert.equal(coverStart(row(false, [{ x: 100, y: 100, w: 233, h: 2, rgb: WHITE }]), cell, 1, false), -1);
+  assert.ok(coverStart(row(false, glove(170, 98, 1.27)), { ...cell, h: 30 }, 1.27, false) >= 0, 'at the 2560 size');
+});
+
+test('a price next to a cover only counts when "mesos" starts after it', () => {
+  const { parsePlayerPrice } = scanner;
+  const read = (text, covered) => { const p = parsePlayerPrice(text, covered); return p && { ...p }; };
+  // what test/cursor-price-1.webp, earrings-hover.webp and robe-hover-3.webp read up to the glove
+  assert.equal(parsePlayerPrice('1for19,', true), null);
+  assert.equal(parsePlayerPrice('1 for 55,000', true), null, 'the cover may hide more digits');
+  assert.deepEqual(read('1 for 15,000 me:', true), { qty: 1, price: 15000 });
+  assert.deepEqual(read('1 for 240,000 mesc', true), { qty: 1, price: 240000 });
+  assert.deepEqual(read('1 for 55,000', false), { qty: 1, price: 55000 }, 'nothing on the row');
+});
