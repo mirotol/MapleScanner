@@ -121,6 +121,7 @@ function applyScan(res, at = Date.now()) {
     held = null;
   }
   session.seenAt = now;
+  if (res.own != null) session.own = res.own; // whose shop the green button says it is
   countRead(session.sellers, res.seller);
   countRead(session.titles, res.title);
   session.seller = mostRead(session.sellers, READS_TO_SAVE);
@@ -194,8 +195,11 @@ function settleStats(line, reads) {
   if (listing.saved) remember(listing, session);
 }
 
+// Only from a shop known to be someone else's: your own, while you set it up, isn't on the
+// market yet, and a shop whose green button couldn't be told waits until it can.
 function saveRow(row) {
   if (row.saved || row.cut || row.clipped) return;
+  if (session.kind === 'player' && session.own !== false) return;
   row.saved = true;
   remember(row, session);
 }
@@ -303,7 +307,7 @@ const shopName = () => session.seller ?? session.title ?? 'Player shop';
 const dealsSeen = new Map();
 function noteDeals(rows) {
   const who = session.seller ?? session.title;
-  if (!who) return;
+  if (!who || session.own) return;
   const where = whereText({ channel, map: place?.map, room: place?.room });
   for (const { r, j } of rows) {
     const key = `${who}|${r.name}|${r.qty}|${r.price}`;
@@ -332,7 +336,7 @@ function playerRows() {
   const forSale = rows.filter(x => !x.r.sold).length;
   // sold rows stay where they are in the shop, greyed as in the game
   return `<div class="shop-head"><div class="who"><h3>${esc(shopName())}</h3>${deals ? `<span class="count">${deals} deal${deals > 1 ? 's' : ''}</span>` : ''}</div>
-    <p>${[title, where, `${forSale} for sale`].filter(Boolean).map(esc).join(' · ')}</p></div>
+    <p>${[title, where, session.own ? 'Your shop, not shared' : `${forSale} for sale`].filter(Boolean).map(esc).join(' · ')}</p></div>
     <div class="lots">${rows.map(x => rowHtml(x, x.l === hot)).join('')}</div>`;
 }
 

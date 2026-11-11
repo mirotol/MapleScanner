@@ -127,3 +127,27 @@ test('a price next to a cover only counts when "mesos" starts after it', () => {
   assert.deepEqual(read('1 for 240,000 mesc', true), { qty: 1, price: 240000 });
   assert.deepEqual(read('1 for 55,000', false), { qty: 1, price: 55000 }, 'nothing on the row');
 });
+
+// The green button above a shop's two orange ones, with its two words as pale blocks.
+const GREEN = [177, 201, 41], LETTER = [225, 235, 170];
+function shopButton(words, s = 1) {
+  const at = n => Math.round(n * s);
+  return picture(400, 200, [
+    { x: 100, y: 100 - at(46), w: at(110), h: at(20), rgb: GREEN },
+    ...words.map(([from, to]) => ({ x: 100 + at(from), y: 100 - at(46) + at(6), w: at(to - from), h: at(8), rgb: LETTER })),
+  ]);
+}
+
+test('the green button says whose shop it is', () => {
+  const { ownShop } = scanner;
+  for (const s of [1, 1.27]) {
+    const shop = { kind: 'player', scale: s, anchors: [{ x: 100, y: 100 }] };
+    // SELLER INFO: a long word, then a short one. SOLD ITEMS: a short word, then a longer one.
+    assert.equal(ownShop(shopButton([[12, 58], [65, 88]], s), shop), false, `someone else's at ${s}`);
+    assert.equal(ownShop(shopButton([[14, 44], [51, 90]], s), shop), true, `your own at ${s}`);
+    // nothing readable, such as a tooltip over it, or a gap in the middle: not known, so not saved
+    assert.equal(ownShop(shopButton([], s), shop), null);
+    assert.equal(ownShop(shopButton([[12, 49], [56, 88]], s), shop), null);
+    assert.equal(ownShop(shopButton([[12, 58], [65, 88]], s), { ...shop, kind: 'npc' }), null);
+  }
+});

@@ -70,6 +70,35 @@ function findShop(img) {
   return null;
 }
 
+// The green button above the orange two says whose shop it is: SELLER INFO in someone else's,
+// SOLD ITEMS in your own while you set it up, where nothing is on the market yet (a test row
+// of 1 for 499,999,999,999 in an unopened shop read as a listing, Nov 11). Its pale letters on
+// green read badly as text, so the gap between its two words says which it is: 0.62 to 0.63 of
+// the way along the words on all 20 shop screenshots in test/, and 0.45 on the two of an own
+// shop (test/own-shop-*.webp). The letters are told by their blue, 45 over the button's.
+// Returns true for your own, false for someone else's, null when it can't be told.
+// (Once your shop is open, OPEN STORE is grey, so no shop is found at all.)
+function ownShop(img, shop) {
+  const s = shop.scale, a = shop.anchors[0], m = Math.round(4 * s);
+  const r = { x: Math.round(a.x), y: Math.round(a.y - 46 * s), w: Math.round(110 * s), h: Math.round(20 * s) };
+  if (shop.kind !== 'player' || r.y < 0 || r.x + r.w > img.width) return null;
+  const blue = (x, y) => img.data[(y * img.width + x) * 4 + 2];
+  const blues = [];
+  for (let y = r.y + m; y < r.y + r.h - m; y++) for (let x = r.x + m; x < r.x + r.w - m; x++) blues.push(blue(x, y));
+  const letter = blues.sort((p, q) => p - q)[blues.length >> 1] + 45;
+  const on = [];
+  for (let x = r.x + m; x < r.x + r.w - m; x++) {
+    for (let y = r.y + m; y < r.y + r.h - m; y++) if (blue(x, y) > letter) { on.push(x); break; }
+  }
+  if (on.length < 40 * s) return null;
+  const first = on[0], width = on[on.length - 1] - first;
+  let gap = 0, at = 0;
+  for (let k = 1; k < on.length; k++) if (on[k] - on[k - 1] > gap) { gap = on[k] - on[k - 1]; at = (on[k] + on[k - 1]) / 2; }
+  if (gap < 4 * s || gap > 10 * s || width < 0.65 * (r.w - 2 * m)) return null;
+  const along = (at - first) / width;
+  return along >= 0.57 && along <= 0.68 ? false : along >= 0.4 && along <= 0.5 ? true : null;
+}
+
 // Bluish things next to a tooltip join its shape, but only the tooltip fills whole
 // rows and columns, so the box is cut back to those.
 function tighten(img, box) {
@@ -350,7 +379,6 @@ function endAtGap(img, r) {
   return last < 0 ? r : { ...r, w: Math.min(r.w, last + 1 + Math.round(r.h / 3)) };
 }
 
-// Small fingerprint so an unchanged cell is never read twice.
 // The game's glove cursor, or anything else drawn over a row's text, hides letters, and a price
 // with digits hidden reads as a lower one: a hovered `1 for 19,999` read as 195 and as 1
 // (test/cursor-price-*.webp, Nov 11), which the card called a deal. A row's own colours give a
@@ -374,6 +402,7 @@ function coverStart(img, r, s, sold) {
   return count >= (sold ? 8 * s * s : 4 * s) ? first : -1;
 }
 
+// Small fingerprint so an unchanged cell is never read twice.
 function cellHash(img, r) {
   let h = 2166136261;
   for (let y = r.y; y < r.y + r.h; y += 2) for (let x = r.x; x < r.x + r.w; x += 2) {
@@ -617,7 +646,7 @@ class ShopReader {
       const left = shop.anchors[list.anchor].x + (list.nameX - 50) * s;
       return tooltip.x >= left && tooltip.x <= left + (list.w + 100) * s;
     });
-    return { seller, title, rows, overList, hoverSlot, cursor };
+    return { seller, title, rows, overList, hoverSlot, cursor, own: ownShop(img, shop) };
   }
 
   async readTooltip(source, img, box, scale) {
