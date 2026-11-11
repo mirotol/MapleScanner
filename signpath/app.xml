@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration "app": signs MapleScanner.exe before the installer is built
+     around it. The release workflow uploads the exe alone, zipped by GitHub. Paste this into the
+     SignPath project's artifact configuration with the slug "app". -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <!-- electron-builder writes the exe's product version with four parts (0.3.0.0) -->
+    <pe-file path="MapleScanner.exe" product-name="MapleScanner" product-version="${version}.0">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

@@ -19,7 +19,7 @@ const HEAD = current => `<header class="site-head">
 </header>`;
 
 const FOOT = `<footer class="site-foot">
-  <p>MapleStory and its game content are © Nexon. MapleScanner is an unofficial fan project, not affiliated with or endorsed by Nexon. <a href="/about#credits">Licences and credits</a></p>
+  <p>MapleStory and its game content are © Nexon. MapleScanner is an unofficial fan project, not affiliated with or endorsed by Nexon. <a href="/about#credits">Licences and credits</a> · <a href="/code-signing">Code signing policy</a></p>
 </footer>`;
 
 // Replaces `from` once, and fails the build if the page no longer has it.
@@ -38,7 +38,7 @@ for (const file of ['theme.css', 'pricing.js', 'market.js', 'prices.js', 'osms-i
 for (const file of fs.readdirSync(path.join(root, 'fonts'))) fs.copyFileSync(path.join(root, 'fonts', file), path.join(out, 'fonts', file));
 for (const file of ['site.css', 'site.js']) fs.copyFileSync(path.join(__dirname, file), path.join(out, file));
 
-for (const [file, current] of [['download.html', 'download'], ['about.html', 'about'], ['404.html', null]]) {
+for (const [file, current] of [['download.html', 'download'], ['about.html', 'about'], ['code-signing.html', 'code-signing'], ['404.html', null]]) {
   let page = swap(fs.readFileSync(path.join(__dirname, file), 'utf8'), '<!--site-head-->', HEAD(current), file);
   if (current) page = swap(page, '<!--site-foot-->', FOOT, file);
   fs.writeFileSync(path.join(out, file), page);
@@ -49,6 +49,8 @@ prices = swap(prices, '<title>Price Database</title>', `<title>Free Market price
 <meta name="description" content="What items sell for in the MapleStory Classic Free Market, from shops scanned by MapleScanner players.">`, 'prices.html');
 prices = swap(prices, '<link rel="stylesheet" href="theme.css">', '<link rel="stylesheet" href="theme.css">\n<link rel="stylesheet" href="site.css">', 'prices.html');
 prices = swap(prices, '<body>', `<body>\n${HEAD('prices')}`, 'prices.html');
+// The footer, so the front page links to the code signing policy too, as SignPath's terms ask
+prices = swap(prices, '</main>', `</main>\n${FOOT}`, 'prices.html');
 // site.js goes after pricing.js, whose `api` it replaces, and before prices.js, which calls it
 prices = swap(prices, '<script src="market.js"></script>', '<script src="market.js"></script>\n<script src="site.js"></script>', 'prices.html');
 fs.writeFileSync(path.join(out, 'index.html'), prices); // the site's front page

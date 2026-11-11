@@ -2,12 +2,25 @@ name: Release
 
 # Pushing a tag like v0.1.0 builds the Windows installer and uploads it to a draft GitHub release.
 # Nothing reaches players until the draft is published by hand on GitHub.
+#
+# Signing (SignPath Foundation, see signpath/) runs once the repository variable
+# SIGNPATH_ORGANIZATION_ID and the secret SIGNPATH_API_TOKEN are set. Until then the release is built
+# unsigned, as before. Signed, the build is split in two so each part can be signed in turn:
+# MapleScanner.exe first, then the installer built around it. Each is a signing request that waits
+# for an approver in SignPath, and SignPath only signs builds from GitHub's own machines.
 on:
   push:
     tags: ['v*']
 
 permissions:
   contents: write
+  actions: read
+
+env:
+  SIGNPATH_PROJECT: MapleScanner
+  SIGNPATH_POLICY: release-signing
+  # How long a signing request may wait for the approver, in seconds
+  SIGNPATH_WAIT: 10800
 
 jobs:
   release:
@@ -19,16 +32,92 @@ jobs:
           node-version: 24
           cache: npm
       - name: Tag matches package.json version
+        id: version
         shell: bash
         run: |
-          version="v$(node -p "require('./package.json').version")"
-          if [ "$version" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME doesn't match package.json version $version"
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match package.json version v$version"
             exit 1
           fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npm test
-      - run: npm run dist
+
+      - name: Build the app
+        run: npx electron-builder --win dir --publish never
+
+      - name: Upload the app for signing
+        id: unsigned-app
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-app
+          path: dist/win-unpacked/MapleScanner.exe
+          if-no-files-found: error
+      - name: Sign the app
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: app
+          github-artifact-id: ${{ steps.unsigned-app.outputs.artifact-id }}
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: ${{ env.SIGNPATH_WAIT }}
+          output-artifact-directory: dist/signed-app
+      - name: Put the signed app in place
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: bash
+        run: mv -f dist/signed-app/MapleScanner.exe dist/win-unpacked/MapleScanner.exe
+
+      - name: Build the installer
+        run: npx electron-builder --win nsis --prepackaged dist/win-unpacked --publish never
+
+      - name: Upload the installer for signing
+        id: unsigned-installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-installer
+          path: dist/MapleScanner-Setup-${{ steps.version.outputs.version }}.exe
+          if-no-files-found: error
+      - name: Sign the installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: ${{ env.SIGNPATH_WAIT }}
+          output-artifact-directory: dist/signed-installer
+      # Signing changes the installer's bytes, so the updater's checksum and the blockmap are made again
+      - name: Put the signed installer in place
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: bash
+        run: |
+          mv -f "dist/signed-installer/MapleScanner-Setup-${{ steps.version.outputs.version }}.exe" dist/
+          node tools/refresh-update-info.js dist
+      - name: Check both signatures
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          foreach ($file in "dist/win-unpacked/MapleScanner.exe", "dist/MapleScanner-Setup-${{ steps.version.outputs.version }}.exe") {
+            $s = Get-AuthenticodeSignature $file
+            "$file is signed by $($s.SignerCertificate.Subject)"
+            if ($s.Status -ne 'Valid') { throw "$file's signature is $($s.Status)" }
+          }
+
       # Uploaded with gh rather than electron-builder's publisher: on v0.1.0 that one started two
       # uploads at once, created the release twice and exited with success after only the
       # blockmap was up, leaving no installer and no latest.yml. gh fails the job if any file fails.
@@ -42,6 +131,7 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "${files[@]}" --draft --verify-tag --title "${GITHUB_REF_NAME#v}"
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" --draft --verify-tag --title "${GITHUB_REF_NAME#v}" \
+              --notes "Code signing policy: https://maplescanner.app/code-signing"
           fi
           gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name'

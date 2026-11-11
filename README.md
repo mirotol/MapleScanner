@@ -34,6 +34,15 @@ npm start
 
 The reading code was tuned on real game screenshots. Those stay on the author's computer and aren't in this repository, so `npm test` uses none of them.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- Committers and reviewers: [mirotol](https://github.com/mirotol)
+- Approvers: [mirotol](https://github.com/mirotol)
+
+The app and its installer are built by GitHub Actions from this repository and signed only after an approver approves that release. Privacy: see [What it sends](#what-it-sends) and the full [code signing policy](https://maplescanner.app/code-signing).
+
 ## Credits
 
 Item data from [OSMS Data Explorer](https://osmsdataexplorer.com), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It's reduced to item names, NPC prices, scroll success rates, upgrade slots, main stat lines, plain gear stats, which gear has no description, which items recharge, and item ids for icons. Icons are downloaded from it once each: the app keeps them on your PC, and the website keeps one copy on its own server. They aren't part of this repository.

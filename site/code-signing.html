@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code signing policy · MapleScanner</title>
+<meta name="description" content="How MapleScanner's Windows app is signed, who can approve a release, and what the app sends.">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<!--site-head-->
+<main class="page">
+  <div class="page-title">
+    <h1>Code signing policy</h1>
+    <p class="lead">Free code signing provided by <a href="https://about.signpath.io">SignPath.io</a>, certificate by <a href="https://signpath.org">SignPath Foundation</a>.</p>
+  </div>
+
+  <section id="signed">
+    <h2>What is signed</h2>
+    <p>The Windows app (MapleScanner.exe) and its installer (MapleScanner-Setup-&lt;version&gt;.exe). Both are built by <a href="https://github.com/mirotol/MapleScanner/actions/workflows/release.yml">GitHub Actions</a> from the <a href="https://github.com/mirotol/MapleScanner">public source code</a>, on GitHub's own machines, and signed only after a person on the team approves that release. Nothing built on a personal computer is signed.</p>
+    <p>The libraries the app is built on, such as Electron, are other projects' work and are included as they come.</p>
+  </section>
+
+  <section id="team">
+    <h2>Team roles</h2>
+    <ul>
+      <li>Committers and reviewers: <a href="https://github.com/mirotol">mirotol</a></li>
+      <li>Approvers: <a href="https://github.com/mirotol">mirotol</a></li>
+    </ul>
+    <p>Changes from anyone else, such as pull requests, are reviewed by a committer before they're merged.</p>
+  </section>
+
+  <section id="privacy">
+    <h2>Privacy</h2>
+    <p>MapleScanner goes online for three things:</p>
+    <ul>
+      <li><b>Prices.</b> It downloads the shared price list from MapleScanner's own server, api.maplescanner.app, which runs on Cloudflare.</li>
+      <li><b>Sharing scans.</b> With Share my scans on, it sends the shop listings it read off your screen to the same server, with an anonymous key for the install. The installer asks before anything is sent, and Settings turns it off at any time. <a href="/about#sends">What it sends</a> lists exactly what goes out.</li>
+      <li><b>Updates and item icons.</b> It checks <a href="https://github.com/mirotol/MapleScanner/releases">GitHub Releases</a> for a new version, and downloads each item's icon once from <a href="https://osmsdataexplorer.com">OSMS Data Explorer</a>.</li>
+    </ul>
+    <p>It never sends pictures of your screen or anything about your account, and never reads the game's memory, files or network traffic. The price server doesn't store IP addresses.</p>
+  </section>
+</main>
+<!--site-foot-->
+</body>
+</html>
