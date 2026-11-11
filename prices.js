@@ -355,10 +355,11 @@ function cardHtml() {
   const sureFig = src?.level
     ? `<div class="fig sure level${src.level}"><span>Price confidence</span><b>${dotsTag(src)}${esc(src.short)}</b><span class="why">${esc(src.why)}</span></div>` : '';
   // The cheapest ask stays second, as the answer a buyer came for, so confidence comes after it
+  const lowFig = low ? `<div class="fig ask"><span>Cheapest ask, ${inLast}</span><b>${fmt(low.u)}${check}</b><span class="go">${esc(whereText(low) || 'place not known')}, ${ago(low.t)}</span></div>`
+    : `<div class="fig ask"><span>Cheapest ask, ${inLast}</span><b class="dim">none seen</b></div>`;
   const figures = [
     usualFig,
-    low ? `<div class="fig"><span>Cheapest ask, ${inLast}</span><b>${fmt(low.u)}${check}</b><span class="go">${esc(whereText(low) || 'place not known')}, ${ago(low.t)}</span></div>`
-      : `<div class="fig"><span>Cheapest ask, ${inLast}</span><b class="dim">none seen</b></div>`,
+    lowFig,
     sureFig,
     lastSold ? `<div class="fig"><span>Last sold</span><b>${fmt(lastSold.u)}</b><span>${ago(lastSold.t)}</span></div>` : '',
     seen.length > 1 ? `<div class="fig"><span>Seen, ${inLast}</span><b>${fmt(Math.min(...seen))} to ${fmt(Math.max(...seen))}</b></div>` : '',
@@ -371,10 +372,16 @@ function cardHtml() {
   const leftOut = filterOn(filter) ? all.filter(v => !v.stats && now - v.t <= win).length : 0;
   const heading = { listed: 'Asking', sold: 'Sold', all: 'Every listing and sale' }[show];
 
-  return `<div class="card-head">
-      <div class="who">${iconTag(facts.icon(name))}<div><h2>${esc(name)}</h2><p>${esc(factLine)}</p></div></div>
+  const who = `<div class="who">${iconTag(facts.icon(name))}<div><h2>${esc(name)}</h2><p>${esc(factLine)}</p></div></div>`;
+  const close = '<button class="close" data-do="close" aria-label="Close">×</button>';
+
+  // On a phone the item, its usual price, its cheapest ask and the × stay in a bar at the top
+  // while the rest of the card scrolls under it (prices.html), and the head leaves them out.
+  return `<div class="card-bar">${who}<div class="figures">${usualFig}${lowFig}</div>${close}</div>
+    <div class="card-head">
+      ${who}
       <div class="figures">${figures}</div>
-      <button class="close" data-do="close" aria-label="Close">×</button>
+      ${close}
     </div>
     <div class="card-body">
       <p class="note card-note" role="status"></p>
