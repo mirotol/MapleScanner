@@ -122,7 +122,8 @@
     .chips.tabs, .chips.groups { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
     .chips.tabs::-webkit-scrollbar, .chips.groups::-webkit-scrollbar { display: none; }
     .chips.tabs { flex: 1 1 100%; min-width: 0; }
-    .chips.tabs .chip { margin-bottom: 0; }
+    /* the tabs are lower on a phone, with the orange line close under the word (Nov 11) */
+    .chips.tabs .chip { margin-bottom: 0; padding: 3px 10px 5px; }
     /* Sort and Hide ●○○ go under the type chips (the user's choice, Nov 11), so the chips sit
        right under the tabs they belong to. The row's box steps aside so the bar can order its
        pieces: search, tabs, types, then Sort and Hide on one line. */
@@ -130,15 +131,16 @@
     .topbar-row { display: contents; }
     .search, .chips.tabs, .chips.groups, .note { flex: 1 1 100%; }
     .chips.tabs { order: 1; }
-    .chips.groups { order: 2; margin-top: 8px; }
+    .chips.groups { order: 2; margin-top: 12px; }
     /* The menu is as wide as its longest choice, so it gives way to keep Hide on the same line:
        Sort starts from no width (a wrapping row picks lines before shrinking) and takes what Hide
        leaves. */
     .topbar::after { content: ""; order: 3; flex: 1 1 100%; } /* starts Sort's line, which would fit beside the chips */
-    .sortpick { order: 4; margin: 8px 0 0; flex: 1 1 0; min-width: 0; }
+    /* Sort and Hide get room above and below, apart from the chips and the list (Nov 11) */
+    .sortpick { order: 4; margin: 14px 0 8px; flex: 1 1 0; min-width: 0; }
     .sortpick select { flex: 0 1 auto; min-width: 0; text-overflow: ellipsis; }
     .sortpick label, .sortpick button { flex: none; }
-    .surepick { order: 5; margin: 8px 0 0 auto; flex: none; }
+    .surepick { order: 5; margin: 14px 0 8px auto; flex: none; }
     .note { order: 6; }
     .chips .chip { flex: none; }
   }
