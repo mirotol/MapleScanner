@@ -151,3 +151,21 @@ test('the green button says whose shop it is', () => {
     assert.equal(ownShop(shopButton([[12, 58], [65, 88]], s), { ...shop, kind: 'npc' }), null);
   }
 });
+
+test('a price must be in groups of three, or a digit went missing', () => {
+  const { parsePlayerPrice } = scanner;
+  const price = t => parsePlayerPrice(t)?.price ?? null;
+  assert.equal(price('1 for 19,999 mesos'), 19999);
+  assert.equal(price('1 for 19,99 mesos'), null, 'a digit lost from the last group');
+  assert.equal(price('1 for 1,9999 mesos'), null);
+  assert.equal(price('1 for 19, mesos'), null, 'a whole group lost');
+  assert.equal(price('1 for 1234,567 mesos'), null);
+  // the comma read as a space or a dot (shot*.jpg read `24 444` and `499,999 999 999`)
+  assert.equal(price('1 for 24 444 mesos'), 24444);
+  assert.equal(price('1 for 499,999 999 999 me...'), 499999999999);
+  assert.equal(price('1 for 19.999 mesos'), 19999);
+  assert.equal(price('1 for I9,B5O mesos'), 19850, 'letters that are digits');
+  // no marks read at all: the digits are all there
+  assert.equal(price('1 for 19999 mesos'), 19999);
+  assert.equal(price('90 for 900 mesos'), 900);
+});

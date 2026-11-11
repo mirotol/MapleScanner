@@ -170,6 +170,7 @@ function findCards(img, known = null) {
 // What's behind a tooltip can split its blue into pieces, or leave too little of it to
 // count, so the shape only gives its size. The cards say where it is. The leftmost is
 // the hovered item, and a second one is the equipped item it's compared with.
+const GUESSED_TIP_H = 530;
 function findTooltip(img, scale, known = null) {
   const W = contentWidth(img);
   const fill = c => c.area / (c.w * c.h);
@@ -190,7 +191,11 @@ function findTooltip(img, scale, known = null) {
   const next = cards.find(d => d.x > card.x && Math.abs(d.y - card.y) <= 3);
   const holds = inShape(card);
   const s = card.scale, x = Math.round(card.x - 13 * s);
-  const size = { x, y: Math.round(card.y - 20 * s), w: Math.round((next ?? card).x + 340 * s - x), h: Math.round(300 * s) };
+  // With no shape its height is a guess, and a tall one: the tallest in test/ is 487 at scale 1
+  // (robe-hover-2.webp), and a shop row under a tooltip taken for shorter would be read through
+  // it. Too tall only leaves a row unread while the hover lasts. Used on 1 of 18 tooltip
+  // screenshots (compare-cards-3.webp, Nov 11), none of them with a shop.
+  const size = { x, y: Math.round(card.y - 20 * s), w: Math.round((next ?? card).x + 340 * s - x), h: Math.round(GUESSED_TIP_H * s) };
   return { ...(holds ? shape : size), card, next };
 }
 
@@ -487,6 +492,12 @@ const PLAYER_PRICE = new RegExp(String.raw`([\dOoIl|SB,.]+)\s*f[o0]r\s*(${PRICE}
 // number is a misread, such as an extra digit.
 const MAX_ASK = 499999999999;
 
+// The game writes a price in groups of three (19,999), so a group of another size means a digit
+// wasn't read: `19,99` would pass for 1,999. The comma can read as a dot or a space, and all 66
+// different prices on the screenshots in test/ kept their groups. A price read with no marks at
+// all still counts, because then it's the commas that went missing, not a digit.
+const grouped = t => !/[,. ]/.test(t) || /^[\dOoIl|SB]{1,3}(?:[,. ]{1,2}[\dOoIl|SB]{3})+$/.test(t);
+
 // `covered` is for text that stops at something drawn over the row: the price then needs the
 // start of "mesos" after it, or its last digits may be under the cover.
 function parsePlayerPrice(text, covered = false) {
@@ -496,6 +507,7 @@ function parsePlayerPrice(text, covered = false) {
   // The row ends in "…" when it's too long ("1 for 499,999,999,999 me..."). Run straight into the
   // price, the "…" means digits are missing, and a shortened price looks like a deal.
   if (/(\.\.|…)$/.test(m[2]) || /^(\.\.|…)/.test(text.slice(m.index + m[0].length))) return null;
+  if (!grouped(m[2])) return null;
   const qty = toInt(m[1]), price = toInt(m[2]);
   return qty && price != null && price <= MAX_ASK ? { qty, price } : null;
 }
