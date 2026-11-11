@@ -39,12 +39,14 @@
     matchMedia('(max-width: 600px)').addEventListener('change', e => { if (!e.matches) set(false); });
   }
 
-  // A switch fades in over a moment instead of flashing the screen (.theme-fade in theme.css).
-  let fading = 0;
-  function fade() {
-    root.classList.add('theme-fade');
-    clearTimeout(fading);
-    fading = setTimeout(() => root.classList.remove('theme-fade'), 400);
+  // A switch fades in over a moment instead of flashing the screen. The browser fades one picture of
+  // the whole page into the next (a view transition, timed in site.css), so every part changes
+  // together: fading each element's own colours (.theme-fade in theme.css, as the app does) left the
+  // search bar and the column headers a different colour from the page behind them partway through.
+  // A browser without view transitions switches at once.
+  function fade(change) {
+    if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return change();
+    document.startViewTransition(change);
   }
 
   addEventListener('DOMContentLoaded', () => {
@@ -53,12 +55,13 @@
     if (!button) return;
     show(button);
     button.onclick = () => {
-      fade();
       const next = dark() ? 'light' : 'dark';
-      if ((next === 'dark') === system.matches) { delete root.dataset.theme; store(null); }
-      else { root.dataset.theme = next; store(next); }
-      show(button);
+      fade(() => {
+        if ((next === 'dark') === system.matches) { delete root.dataset.theme; store(null); }
+        else { root.dataset.theme = next; store(next); }
+        show(button);
+      });
     };
-    system.addEventListener('change', () => { if (!root.dataset.theme) fade(); show(button); });
+    system.addEventListener('change', () => show(button)); // the system's own switch has already happened
   });
 })();

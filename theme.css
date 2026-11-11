@@ -10,7 +10,7 @@
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 /* A switch between them fades over a moment rather than flashing the whole screen. Only while
-   switching (fadeTheme in app.js, site/head.js add the class), so hovers stay instant. */
+   switching (fadeTheme in app.js adds the class; the website fades the whole page as one picture, site/head.js), so hovers stay instant. */
 :root.theme-fade, :root.theme-fade *, :root.theme-fade *::before, :root.theme-fade *::after {
   transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease, fill .35s ease, stroke .35s ease !important;
 }

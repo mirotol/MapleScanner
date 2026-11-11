@@ -1,5 +1,8 @@
 /* The website's own styles, on top of the app's theme.css. Colours and fonts come from its :root. */
 
+/* A light or dark switch fades the old page into the new one as whole pictures (fade in head.js). */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; animation-timing-function: ease; }
+
 /* ---------- the header, on every page ---------- */
 .site-head { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; padding: 0 24px; border-bottom: 1px solid var(--dusk); }
 .site-head .brand { font: 600 20px/1 var(--display); color: var(--cloud); text-decoration: none; padding: 16px 0; margin-right: auto; }
