@@ -10,7 +10,7 @@ const { PRODUCTION_URL } = require('../cloud.js');
 // existing price database is still found. productName alone would decide it otherwise.
 app.setPath('userData', path.join(app.getPath('appData'), 'Maple Scanner'));
 
-const BACKGROUND = '#fbf7ee'; // --night in theme.css, so no window flashes white while it opens
+const BACKGROUND = '#f5ecd7'; // --night in theme.css, so no window flashes white while it opens
 const TITLE_BAR = { color: BACKGROUND, symbolColor: '#6b5438', height: 44 };
 const PANEL_WIDTH = 340, PANEL_HEIGHT = 720;
 

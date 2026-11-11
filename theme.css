@@ -6,10 +6,11 @@
 :root {
   color-scheme: light;
   /* The cream colours of OSMS Data Explorer. The names are from the app's first, dark colour set. */
-  /* surfaces: OSMS card, page and border */
-  --night: #fbf7ee;
-  --dusk: #f0e8d6;
-  --ridge: #d4c4a8;
+  /* surfaces: page, a darker fill and border. Since Nov 11 a deeper parchment than OSMS's #fbf7ee,
+     which read as nearly white; design/creams.js has the creams compared */
+  --night: #f5ecd7;
+  --dusk: #e9dec2;
+  --ridge: #cbb894;
   /* text: OSMS brown, and a muted brown dark enough for small text */
   --cloud: #2a1a08;
   --mist: #6b5438;

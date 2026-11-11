@@ -170,7 +170,8 @@
   </div>
 </div>
 
-<script src="themes.js"></script>
+<!-- ?set=creams loads creams.js instead, the background creams of Nov 11 -->
+<script>document.write(`<script src="${new URLSearchParams(location.search).get('set') === 'creams' ? 'creams' : 'themes'}.js"><\/script>`);</script>
 <script>
   // The user's list from a screenshot (Nov 9), plus Ilbi and Elixir to show sold prices.
   // [name, kind, icon hue, usual, early, basis, cheapest, where, listed, sold, seen]
