@@ -12,7 +12,6 @@
   /* clip, not auto: a box that scrolls sideways would hold the column headers, so they'd scroll
      away. Only a window too narrow for the columns scrolls them sideways, without sticking. */
   .wrap { overflow-x: clip; }
-  @media (max-width: 560px) { .wrap { overflow-x: auto; } }
   table { border-collapse: collapse; width: 100%; }
   /* headers are small capitals, so the rows lead; only the sorted one is orange */
   th { text-align: left; color: var(--mist); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; padding: 6px 10px; }
@@ -78,8 +77,6 @@
   /* a header sorts the list by its column: it looks like the header, with an arrow when sorted */
   /* tucked 1px under the bar, which is drawn on top, so rounding at a zoomed text size leaves no gap */
   #list th { padding: 0; position: sticky; top: calc(var(--bar-h, 0px) - 1px); z-index: 1; background: var(--night); box-shadow: inset 0 -1px 0 var(--dusk); }
-  /* a phone scrolls the columns sideways in .wrap, where a stuck header would sit over the rows */
-  @media (max-width: 560px) { #list th { position: static; } }
   #list .colsort { font: inherit; text-transform: inherit; letter-spacing: inherit; color: inherit; box-shadow: none; border-radius: 0; width: 100%; text-align: inherit; padding: 6px 10px; white-space: nowrap; }
   #list .colsort:hover { background: none; color: var(--cloud); }
   #list th.sorted { color: var(--meso-text); }
@@ -94,6 +91,24 @@
   #list td span.under.go { color: var(--sky); font-weight: 600; }
   .empty { padding: 28px; text-align: center; color: var(--mist); }
   @media (max-width: 760px) { #list .wide { display: none; } }
+  /* On a phone each item is two lines, like a phone's price lists (CoinMarketCap, Apple Stocks):
+     the icon, name and kind on the left, and on the right the usual price with the confidence
+     dots and the cheapest ask under it. When it was last seen goes after the kind. The other
+     columns and their headers are hidden, so nothing scrolls sideways (before Nov 11 the
+     columns after the usual price were off the screen's edge), and a sort menu in the bar
+     takes the headers' place. */
+  #list td span.phone, .sortpick { display: none; }
+  .sortpick { align-items: center; gap: 6px; margin-bottom: 8px; font: 600 13px/18px var(--display); color: var(--mist); }
+  .sortpick select { font-size: 13px; padding: 4px 8px; }
+  .sortpick button { width: 30px; height: 28px; padding: 0; font-size: 15px; }
+  @media (max-width: 560px) {
+    .sortpick { display: flex; }
+    #list tr.head, #list td.sure, #list td.ask, #list td.seen { display: none; }
+    #list td span.phone { display: inline; }
+    #list span.phone.under { display: flex; justify-content: flex-end; align-items: center; margin-top: 2px; white-space: nowrap; }
+    #list .item-name { min-width: 0; padding-left: 0; }
+    #list td.usual { padding-right: 0; vertical-align: top; padding-top: 10px; }
+  }
 
   /* ---------- the item card: a big panel over the list ----------
      The list stays still under an open card: the page stops scrolling, and the card's own
@@ -201,6 +216,7 @@
     <div class="topbar-row">
       <div class="search"><input id="search" type="search" placeholder="Search items..." aria-label="Search items"><button type="button" class="clear" id="clearSearch" aria-label="Clear search" title="Clear search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="chips tabs" id="tabs"></div>
+      <div class="sortpick"><label for="sortPick">Sort</label><select id="sortPick"></select><button type="button" id="sortWay"></button></div>
       <label class="surepick level1" title="Hides prices with low confidence: under 5 sellers, or sellers far apart.">Hide <span class="dots" role="img" aria-label="low confidence"><i class="on"></i><i></i><i></i></span><input type="checkbox" role="switch" id="hideThin" aria-label="Hide prices with low confidence"></label>
     </div>
     <div class="chips groups" id="groups"></div>

@@ -92,13 +92,22 @@ function shownItems() {
 }
 
 function listHead() {
-  return `<tr>${COLUMNS.map(c => {
+  return `<tr class="head">${COLUMNS.map(c => {
     const on = sort.key === c.key, way = sort.dir > 0 ? 'ascending' : 'descending';
     return `<th class="${c.cls ?? ''}${on ? ' sorted' : ''}"${on ? ` aria-sort="${way}"` : ''}><button class="colsort" data-col="${c.key}">${c.label}<span class="arrow" aria-hidden="true">${on ? (sort.dir > 0 ? '↑' : '↓') : ''}</span></button></th>`;
   }).join('')}</tr>`;
 }
 
+// On a phone the column headers are hidden, so the bar has a sort menu instead (prices.html),
+// with a button to turn the order round. Both follow the headers' sort.
+function showSort() {
+  $('sortPick').value = sort.key;
+  $('sortWay').textContent = sort.dir > 0 ? '↑' : '↓';
+  $('sortWay').ariaLabel = $('sortWay').title = sort.dir > 0 ? 'Lowest first, tap for highest' : 'Highest first, tap for lowest';
+}
+
 function renderList() {
+  showSort();
   const q = $('search').value.trim();
   const searched = rows.filter(i => !q || matchRank(i.name, q) >= 0);
   const found = searched.filter(i => sureEnough(i));
@@ -125,14 +134,18 @@ function renderList() {
       const usual = s ? `<b>${fmt(i.usual.price)}</b>` : '<span class="quiet">—</span>';
       const sure = s ? `<td class="sure level${s.level}" title="${esc(s.why)}">${dotsTag(s)}${esc(s.short)}</td>` : '<td class="sure"></td>';
       const low = i.low ? `${fmt(i.low.u)}<span class="under go">${esc(whereText(i.low) || 'place not known')}</span>` : '<span class="quiet">none</span>';
+      // On a phone (prices.html) the row is two lines with no other columns: when it was last
+      // seen goes after the kind, and the dots and cheapest ask under the price.
+      const seen = i.last ? `<span class="phone"> · ${ago(i.last)}</span>` : '';
+      const under = `<span class="phone under">${s ? dotsTag(s) : ''}${i.low ? `ask ${fmt(i.low.u)}` : 'no ask'}</span>`;
       return `<tr class="item" data-name="${esc(i.name)}">
-        <td class="item-name"><span class="named">${iconTag(facts.icon(i.name))}<span><span class="name">${esc(i.name)}</span><span class="kind">${esc(i.kind.kind)}</span></span></span></td>
-        <td class="num usual">${usual}</td>
+        <td class="item-name"><span class="named">${iconTag(facts.icon(i.name))}<span><span class="name">${esc(i.name)}</span><span class="kind">${esc(i.kind.kind)}${seen}</span></span></span></td>
+        <td class="num usual">${usual}${under}</td>
         ${sure}
-        <td class="num">${low}</td>
+        <td class="num ask">${low}</td>
         <td class="num wide">${(i.listings - i.soldListings).toLocaleString('en-US')}</td>
         <td class="num wide">${i.soldListings.toLocaleString('en-US')}</td>
-        <td class="num quiet">${i.last ? ago(i.last) : '—'}</td></tr>`;
+        <td class="num quiet seen">${i.last ? ago(i.last) : '—'}</td></tr>`;
     }).join('');
 }
 
@@ -440,6 +453,16 @@ $('tabs').addEventListener('click', e => {
   if (!chip) return;
   tab = chip.dataset.tab;
   group = null;
+  newList();
+});
+// the phone's sort menu: a new column goes its usual way first, like a header's first click
+$('sortPick').innerHTML = COLUMNS.map(c => `<option value="${c.key}">${c.label}</option>`).join('');
+$('sortPick').addEventListener('change', e => {
+  sort = { key: e.target.value, dir: COLUMNS.find(c => c.key === e.target.value).dir };
+  newList();
+});
+$('sortWay').addEventListener('click', () => {
+  sort = { ...sort, dir: -sort.dir };
   newList();
 });
 $('hideThin').addEventListener('change', e => {
