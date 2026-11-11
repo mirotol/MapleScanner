@@ -117,9 +117,12 @@
        chips: wrapped, Equip's ten types took three lines and the tabs two, and the bar, which
        stays at the top, took 255 of 812 px (Nov 11). A chip cut off at the edge shows there's
        more. prices.js keeps the chosen one in view. */
-    .chips.tabs, .chips.groups { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+    /* overflow-y: hidden, or the tabs' underline, 1 px below the row, let a touch move the row
+       up and down by that pixel. overscroll-behavior: a swipe past the end isn't a Back gesture. */
+    .chips.tabs, .chips.groups { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
     .chips.tabs::-webkit-scrollbar, .chips.groups::-webkit-scrollbar { display: none; }
     .chips.tabs { flex: 1 1 100%; min-width: 0; }
+    .chips.tabs .chip { margin-bottom: 0; }
     .chips .chip { flex: none; }
   }
 
