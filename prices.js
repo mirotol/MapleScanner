@@ -106,18 +106,35 @@ function showSort() {
   $('sortWay').ariaLabel = $('sortWay').title = sort.dir > 0 ? 'Lowest first, tap for highest' : 'Highest first, tap for lowest';
 }
 
+// On a phone the tabs and type chips are rows that swipe sideways (prices.html). They're drawn
+// again on every change, so this brings the chosen chip back into view, and leaves the row where
+// it was when the chip is already showing.
+function showChosen(row) {
+  const on = row.querySelector('.chip.on');
+  if (!on || row.scrollWidth <= row.clientWidth) return;
+  const left = on.offsetLeft - row.offsetLeft, right = left + on.offsetWidth;
+  if (left < row.scrollLeft) row.scrollLeft = left - 16;
+  else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth + 32;
+}
+
 function renderList() {
   showSort();
   const q = $('search').value.trim();
   const searched = rows.filter(i => !q || matchRank(i.name, q) >= 0);
   const found = searched.filter(i => sureEnough(i));
+  const tabSwiped = $('tabs').scrollLeft;
   $('tabs').innerHTML = TABS.map(([key, label]) => {
     const n = key === 'all' ? found.length : found.filter(i => i.kind.tab === key).length;
     if (!n && key !== tab && key !== 'all') return '';
     return `<button class="chip${tab === key ? ' on' : ''}" data-tab="${key}">${label}<small>${n}</small></button>`;
   }).join('');
+  $('tabs').scrollLeft = tabSwiped;
   const groups = tab === 'all' ? [] : [...new Set(found.filter(i => i.kind.tab === tab).map(i => i.kind.group))].sort();
+  const swiped = $('groups').scrollLeft;
   $('groups').innerHTML = groups.length > 1 ? groups.map(g => `<button class="chip${group === g ? ' on' : ''}" data-group="${esc(g)}">${esc(g)}<small>${found.filter(i => i.kind.tab === tab && i.kind.group === g).length}</small></button>`).join('') : '';
+  $('groups').scrollLeft = swiped;
+  showChosen($('tabs'));
+  showChosen($('groups'));
 
   const shown = shownItems();
   if (!shown.length) {
@@ -453,6 +470,7 @@ $('tabs').addEventListener('click', e => {
   if (!chip) return;
   tab = chip.dataset.tab;
   group = null;
+  $('groups').scrollLeft = 0; // another tab's types start from their first
   newList();
 });
 // the phone's sort menu: a new column goes its usual way first, like a header's first click
