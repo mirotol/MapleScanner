@@ -677,6 +677,7 @@ $('pop').onclick = async () => {
   theme.onload = render; // the card can only measure itself once it's styled
   pip.document.head.append(theme);
   zoomDocument(pip.document);
+  themeDocument(pip.document);
   panel.classList.add('pip');
   pip.document.body.append(panel);
   popped = pip;
@@ -754,7 +755,9 @@ function showSettings() {
   $('settingAutoUpdate').checked = settings.autoUpdate ?? true;
   $('settingShareScans').checked = settings.shareScans ?? true;
   $('settingTextSize').value = String(settings.textSize ?? 1);
+  $('settingTheme').value = settings.theme ?? 'auto';
   showTextSize();
+  showTheme();
 }
 
 // ---------- about and updates ----------
@@ -860,6 +863,53 @@ async function setTextSize(size) {
   select.disabled = false;
 }
 $('settingTextSize').onchange = e => setTextSize(Number(e.target.value));
+
+// ---------- theme ----------
+// theme.css has a light and a dark colour set and shows the one the system asks for. Light or Dark
+// in Settings overrides that with data-theme, on each document: the page, the Prices frame and the
+// popped-out card are three. The Windows app also tells Electron, which sets the system's answer for
+// all its windows and colours the title bar (desktop/main.js).
+// A change fades in over a moment instead of flashing the screen (.theme-fade in theme.css).
+const fading = new WeakMap();
+function fadeTheme(root) {
+  root.classList.add('theme-fade');
+  clearTimeout(fading.get(root));
+  fading.set(root, setTimeout(() => root.classList.remove('theme-fade'), 400));
+}
+function themeDocument(doc, fade = true) {
+  const root = doc?.documentElement;
+  if (!root) return;
+  const theme = settings.theme === 'light' || settings.theme === 'dark' ? settings.theme : undefined;
+  if (root.dataset.theme === theme) return;
+  if (fade) fadeTheme(root);
+  if (theme) root.dataset.theme = theme;
+  else delete root.dataset.theme;
+}
+const themeDocuments = () => [document, popped?.document, $('pricesFrame').contentDocument].filter(doc => doc?.documentElement);
+function showTheme() {
+  for (const doc of themeDocuments()) themeDocument(doc);
+  window.desktop?.setTheme?.(settings.theme ?? 'auto');
+}
+// A new Prices page takes the theme as it opens, with nothing to fade from.
+$('pricesFrame').addEventListener('load', e => themeDocument(e.target.contentDocument, false));
+// On Match Windows, Windows switching between light and dark fades too.
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (!settings.theme || settings.theme === 'auto') for (const doc of themeDocuments()) fadeTheme(doc.documentElement);
+});
+
+async function setTheme(theme) {
+  const select = $('settingTheme'), note = $('settingsNote');
+  select.disabled = true;
+  try {
+    settings = await api('/api/settings', { theme });
+    note.textContent = '';
+  } catch (err) {
+    note.textContent = `Couldn't save the setting: ${err.message}`;
+  }
+  showSettings();
+  select.disabled = false;
+}
+$('settingTheme').onchange = e => setTheme(e.target.value);
 
 // Takes effect at once, even while scanning.
 async function setChannelWatch(on) {

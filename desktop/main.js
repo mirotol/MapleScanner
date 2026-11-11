@@ -1,17 +1,31 @@
 // The Windows app: runs the local server and shows its pages in app windows.
-const { app, BrowserWindow, Menu, desktopCapturer, globalShortcut, ipcMain, screen, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, desktopCapturer, globalShortcut, ipcMain, nativeTheme, screen, session, shell } = require('electron');
 const path = require('path');
 const { execFile } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 const { start, readSettings, saveSettings, TEXT_SIZES } = require('../serve.js');
 const { PRODUCTION_URL } = require('../cloud.js');
+const { windowOptions, saveWindowState } = require('./window-state.js');
 
 // The app was called "Maple Scanner" until Nov 10, and its data folder keeps that name so every
 // existing price database is still found. productName alone would decide it otherwise.
 app.setPath('userData', path.join(app.getPath('appData'), 'Maple Scanner'));
 
-const BACKGROUND = '#f5ecd7'; // --night in theme.css, so no window flashes white while it opens
-const TITLE_BAR = { color: BACKGROUND, symbolColor: '#6b5438', height: 44 };
+// --night and --mist in theme.css, light and dark, so no window flashes the wrong colour while it
+// opens and the title bar's Windows buttons match the page.
+const COLOURS = { light: { night: '#f5ecd7', mist: '#6b5438' }, dark: { night: '#1d2021', mist: '#a89984' } };
+const colours = () => COLOURS[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
+const titleBar = () => ({ color: colours().night, symbolColor: colours().mist, height: 44 });
+
+// The Theme setting: 'auto' follows Windows' app mode. Electron's themeSource decides what the
+// pages' prefers-color-scheme says, so theme.css follows it in every window, the card's too.
+function useTheme(theme) {
+  nativeTheme.themeSource = theme === 'light' || theme === 'dark' ? theme : 'system';
+}
+function followTheme() {
+  for (const window of [main, panel]) window?.setBackgroundColor(colours().night);
+  main?.setTitleBarOverlay(titleBar());
+}
 const PANEL_WIDTH = 340, PANEL_HEIGHT = 720;
 
 let main = null;
@@ -58,7 +72,7 @@ function openPanel(window) {
       action: 'allow',
       overrideBrowserWindowOptions: {
         width: PANEL_WIDTH, height: PANEL_HEIGHT, frame: false, resizable: false, maximizable: false, focusable: false,
-        alwaysOnTop: true, backgroundColor: BACKGROUND, title: 'MapleScanner', autoHideMenuBar: true,
+        alwaysOnTop: true, backgroundColor: colours().night, title: 'MapleScanner', autoHideMenuBar: true,
       },
     };
   });
@@ -131,22 +145,35 @@ function movePanel(dx, dy) {
 async function createMainWindow() {
   const data = app.getPath('userData');
   settingsFile = path.join(data, 'settings.json'); // where serve.js keeps it, next to the database
+  useTheme(readSettings(settingsFile).theme);
+  nativeTheme.on('updated', followTheme); // the setting, or Windows' mode while it's on auto
   hotkey = readSettings(settingsFile).cardHotkey;
   hotkeyWorks = useHotkey(hotkey);
   // Prices come from the shared database. An old prices.db in this folder is left alone and unused.
   const { port } = await start({ dataDir: data, cloudUrl: process.env.CLOUD_URL || PRODUCTION_URL });
   const origin = `http://127.0.0.1:${port}`;
 
+  // Opens where and as big as it was when it was last closed (window-state.js).
+  const windowFile = path.join(data, 'window.json');
+  const primary = screen.getPrimaryDisplay();
+  const displays = [primary, ...screen.getAllDisplays().filter(d => d.id !== primary.id)].map(d => d.workArea);
+  const { maximized, ...bounds } = windowOptions(windowFile, displays);
   main = new BrowserWindow({
-    width: 1100,
-    height: 800,
-    backgroundColor: BACKGROUND,
+    ...bounds,
+    show: !maximized, // a maximized window is shown once maximized, so it doesn't open small first
+    backgroundColor: colours().night,
     titleBarStyle: 'hidden',
-    titleBarOverlay: TITLE_BAR,
+    titleBarOverlay: titleBar(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       backgroundThrottling: false, // keep scanning while the game has focus
     },
+  });
+  if (maximized) { main.maximize(); main.show(); }
+  // Saved as it closes. getNormalBounds is the size it had before being maximized, so a maximized
+  // window comes back maximized and goes back to that size when restored.
+  main.on('close', () => {
+    try { saveWindowState(windowFile, main.getNormalBounds(), main.isMaximized()); } catch (err) { console.error(err); }
   });
   openPanel(main);
   // A reloaded page starts with the card at home, so an old pop-out would be left empty and out of
@@ -218,6 +245,7 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('fit-panel', (event, width, height) => fitPanel(width, height));
     ipcMain.on('move-panel', (event, dx, dy) => movePanel(dx, dy));
     ipcMain.on('show-card', showCard);
+    ipcMain.on('set-theme', (event, theme) => useTheme(theme));
     ipcMain.handle('hotkey', () => ({ key: hotkey, works: hotkeyWorks }));
     ipcMain.handle('set-hotkey', (event, accelerator) => setHotkey(accelerator));
     // While Settings waits for a new key, so the old one reaches the page instead of the card.

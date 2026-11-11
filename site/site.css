@@ -8,6 +8,10 @@
 .site-head nav a { display: flex; align-items: center; font: 600 14px/1 var(--display); color: var(--mist); text-decoration: none; padding: 2px 10px 0; margin-bottom: -1px; border-bottom: 2px solid transparent; }
 .site-head nav a:hover { color: var(--cloud); }
 .site-head nav a[aria-current] { color: var(--cloud); border-bottom-color: var(--meso); }
+/* the light and dark button at the header's end: an icon of what a click switches to */
+.site-head .theme-pick { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 8px; box-shadow: none; color: var(--mist); }
+.site-head .theme-pick:hover { background: var(--dusk); color: var(--cloud); }
+.site-head .theme-pick svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 800px) { .site-head { padding: 0 16px; } }
 
 /* ---------- the front page ---------- */
@@ -24,7 +28,7 @@
 .hero .get { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 28px; }
 .hero .small { font-size: 13px; color: var(--mist); margin-top: 12px; }
 .example { margin: 0; }
-.example .stall { font-size: 14px; line-height: 1.45; box-shadow: 0 0 0 1px var(--ridge), 0 14px 32px rgb(42 26 8 / 12%); }
+.example .stall { font-size: 14px; line-height: 1.45; box-shadow: 0 0 0 1px var(--ridge), 0 14px 32px var(--shade); }
 .example figcaption { font-size: 13px; color: var(--mist); text-align: center; margin-top: 12px; }
 @media (max-width: 800px) {
   .hero { grid-template-columns: minmax(0, 1fr); padding: 36px 0 32px; }

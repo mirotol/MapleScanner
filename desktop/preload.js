@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('desktop', {
   fitPanel: (width, height) => ipcRenderer.send('fit-panel', width, height),
   movePanel: (dx, dy) => ipcRenderer.send('move-panel', dx, dy),
   showCard: () => ipcRenderer.send('show-card'),
+  setTheme: theme => ipcRenderer.send('set-theme', theme), // 'auto', 'light' or 'dark'
   hotkey: () => ipcRenderer.invoke('hotkey'),
   setHotkey: accelerator => ipcRenderer.invoke('set-hotkey', accelerator),
   pauseHotkey: paused => ipcRenderer.send('pause-hotkey', paused),

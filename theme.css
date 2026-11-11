@@ -3,31 +3,50 @@
 @font-face { font-family: "Nunito"; src: url(fonts/nunito-latin-wght-normal.woff2) format("woff2"); font-weight: 200 1000; font-display: swap; }
 @font-face { font-family: "Fredoka"; src: url(fonts/fredoka-latin-wght-normal.woff2) format("woff2"); font-weight: 300 700; font-display: swap; }
 
+/* Two colour sets, light and dark, each colour written light-dark(light, dark). Which one shows is
+   color-scheme: by default Windows' (or the browser's) light or dark mode, or the Theme setting,
+   which sets data-theme on each page, the Prices frame and the pop-out (app.js). */
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+/* A switch between them fades over a moment rather than flashing the whole screen. Only while
+   switching (fadeTheme in app.js, site/theme-pick.js add the class), so hovers stay instant. */
+:root.theme-fade, :root.theme-fade *, :root.theme-fade *::before, :root.theme-fade *::after {
+  transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease, fill .35s ease, stroke .35s ease !important;
+}
+@media (prefers-reduced-motion: reduce) { :root.theme-fade, :root.theme-fade * { transition: none !important; } }
+
 :root {
-  color-scheme: light;
-  /* The cream colours of OSMS Data Explorer. The names are from the app's first, dark colour set. */
-  /* surfaces: page, a darker fill and border. Since Nov 11 a deeper parchment than OSMS's #fbf7ee,
-     which read as nearly white; design/creams.js has the creams compared */
-  --night: #f5ecd7;
-  --dusk: #e9dec2;
-  --ridge: #cbb894;
-  /* text: OSMS brown, and a muted brown dark enough for small text */
-  --cloud: #2a1a08;
-  --mist: #6b5438;
-  /* meaning: OSMS orange and link blue, the rest chosen to sit with them */
-  --meso: #c04f00;   /* the app's own actions: OSMS orange, a touch darker to carry text */
-  --meso-text: #943c00; /* what the player chose (a filter, a sort): orange dark enough for small capitals */
-  --exp: #26703a;    /* good for the buyer */
-  --hp: #b42318;     /* over the usual price, or destructive */
-  --ember: #8a5f00;  /* look closer */
-  --sky: #005db7;    /* where to walk */
-  --on-bright: #fffaf0;
+  /* Light: the cream colours of OSMS Data Explorer, with a deeper parchment page than its #fbf7ee,
+     which read as nearly white (Nov 11, design/creams.js). Dark: Gruvbox's hard dark (the Gruvbox
+     palette by morhetz, MIT; chosen Nov 11 from design/darks.js, where node design/check-contrast.js
+     darks measures it). The names are from the app's first, dark colour set. */
+  /* surfaces: page, a darker fill and border */
+  --night: light-dark(#f5ecd7, #1d2021);
+  --dusk: light-dark(#e9dec2, #32302f);
+  --ridge: light-dark(#cbb894, #504945);
+  /* text, and a muted one still clear enough for small text */
+  --cloud: light-dark(#2a1a08, #ebdbb2);
+  --mist: light-dark(#6b5438, #a89984);
+  /* meaning: orange and a link blue, the rest chosen to sit with them */
+  --meso: light-dark(#c04f00, #fe8019);      /* the app's own actions */
+  --meso-text: light-dark(#943c00, #fe8019); /* what the player chose (a filter, a sort), in small capitals */
+  --exp: light-dark(#26703a, #b8bb26);       /* good for the buyer */
+  --hp: light-dark(#b42318, #fb4934);        /* over the usual price, or destructive */
+  --ember: light-dark(#8a5f00, #fabd2f);     /* look closer */
+  --sky: light-dark(#005db7, #83a598);       /* where to walk */
+  --on-bright: light-dark(#fffaf0, #1d2021); /* text on a filled orange, green, red or amber */
+  --knob: light-dark(#fffaf0, #ebdbb2);      /* a switch's knob while off, on the border colour; on, it's --on-bright */
+  --shade: light-dark(rgb(42 26 8 / 18%), rgb(0 0 0 / 45%)); /* shadows under what floats */
 
   --display: "Fredoka", "Segoe UI", sans-serif;
   --text: "Nunito", "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
+/* hidden always hides: a display set below (buttons are inline-block) would otherwise beat the
+   browser's own rule, and About showed the hidden update button's empty outline (Nov 11) */
+[hidden] { display: none !important; }
 html { background: var(--night); }
 body { margin: 0; background: var(--night); color: var(--cloud); font: 500 14px/1.45 var(--text); font-variant-numeric: tabular-nums; }
 p { margin: 0; }
@@ -61,14 +80,14 @@ input::placeholder { color: var(--mist); }
 .setting-text b { font: 600 16px/1.3 var(--display); }
 .setting-text span { color: var(--mist); font-size: 13px; }
 input[role="switch"] { appearance: none; flex: none; position: relative; width: 42px; height: 24px; padding: 0; margin: 0; border-radius: 12px; background: var(--ridge); cursor: pointer; transition: background .15s; }
-input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--on-bright); transition: transform .15s; }
+input[role="switch"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--knob); transition: transform .15s; }
 input[role="switch"]:checked { background: var(--exp); }
-input[role="switch"]:checked::before { transform: translateX(18px); }
+input[role="switch"]:checked::before { transform: translateX(18px); background: var(--on-bright); }
 input[role="switch"]:disabled { opacity: .5; cursor: default; }
 
 /* ---------- dialogs ---------- */
 dialog { background: var(--dusk); color: var(--cloud); border: 0; box-shadow: 0 0 0 1px var(--ridge); border-radius: 10px; padding: 16px; width: min(420px, calc(100vw - 32px)); }
-dialog::backdrop { background: rgb(42 26 8 / 45%); }
+dialog::backdrop { background: light-dark(rgb(42 26 8 / 45%), rgb(0 0 0 / 60%)); }
 dialog h2 { font-size: 18px; line-height: 1.2; margin-bottom: 4px; }
 dialog p { color: var(--mist); font-size: 13px; margin-bottom: 12px; }
 dialog p.problem { color: var(--cloud); margin: 0 0 12px; }
@@ -95,12 +114,12 @@ dialog p.problem { color: var(--cloud); margin: 0 0 12px; }
 .tag.warn { background: var(--ember); }
 .tag.over { color: var(--hp); }
 .tag.quiet { color: var(--mist); font-weight: 500; }
-/* How far to trust a usual price: 1 to 3 filled dots (dotsTag in prices.js). A Thin one is a
-   "look closer", so its dots are --ember. Built Nov 9 from design/confidence.html. */
+/* How far to trust a usual price: 1 to 3 filled dots (dotsTag in prices.js), every level in --ember,
+   so the count alone tells them apart. Built Nov 9 from design/confidence.html, where only Thin
+   was amber and the rest --mist; in dark the two looked unrelated, so all amber since Nov 11. */
 .dots { display: inline-flex; gap: 3px; margin-right: 5px; }
 .dots i { width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ridge); }
-.dots i.on { background: var(--mist); box-shadow: none; }
-.level1 .dots i.on { background: var(--ember); }
+.dots i.on { background: var(--ember); box-shadow: none; }
 
 /* ---------- stall card: the price panel, in the page or popped out ---------- */
 .stall { width: 340px; max-width: 100%; background: var(--night); color: var(--cloud); border-radius: 10px; box-shadow: 0 0 0 1px var(--ridge); overflow: hidden; display: flex; flex-direction: column; }

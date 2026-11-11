@@ -106,12 +106,15 @@ function sendIcon(icons, id, res) {
 // it has to check Windows will give it the key first (desktop/main.js).
 // textSize scales the pages and the stall card as a whole (CSS zoom), because their sizes are in
 // pixels. Only the sizes Settings offers.
+// theme: 'auto' follows Windows' (or the browser's) light or dark mode, or 'light' or 'dark'.
 // autoUpdate: download new versions in the background (desktop/main.js). Only the app reads it.
 // shareScans: send the listings read off the screen to the shared price database. Off, prices
 // still come in but nothing goes out. The installer asks first (build/installer.nsh).
-const SETTINGS = { channelWatch: true, cardHotkey: 'Scrolllock', textSize: 1, autoUpdate: true, shareScans: true };
+const SETTINGS = { channelWatch: true, cardHotkey: 'Scrolllock', textSize: 1, theme: 'auto', autoUpdate: true, shareScans: true };
 const TEXT_SIZES = [0.9, 1, 1.15, 1.3, 1.5];
-const allowed = (key, value) => typeof value === typeof SETTINGS[key] && (key !== 'textSize' || TEXT_SIZES.includes(value));
+const THEMES = ['auto', 'light', 'dark'];
+const CHOICES = { textSize: TEXT_SIZES, theme: THEMES };
+const allowed = (key, value) => typeof value === typeof SETTINGS[key] && (!CHOICES[key] || CHOICES[key].includes(value));
 
 function readSettings(file) {
   let saved = {};
@@ -124,7 +127,7 @@ function saveSettings(file, changes) {
   for (const [key, value] of Object.entries(changes)) {
     if (!(key in SETTINGS)) throw new BadInput(`There is no setting called ${key}.`);
     if (typeof value !== typeof SETTINGS[key]) throw new BadInput(`${key} must be ${typeof SETTINGS[key]}.`);
-    if (!allowed(key, value)) throw new BadInput(`${key} must be one of ${TEXT_SIZES.join(', ')}.`);
+    if (!allowed(key, value)) throw new BadInput(`${key} must be one of ${CHOICES[key].join(', ')}.`);
     settings[key] = value;
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -217,4 +220,4 @@ if (require.main === module) {
   }).then(({ port }) => console.log(`MapleScanner: http://localhost:${port}, prices from ${cloudUrl || 'nowhere: set CLOUD_URL'}`));
 }
 
-module.exports = { start, readSettings, saveSettings, SETTINGS, TEXT_SIZES, iconStore };
+module.exports = { start, readSettings, saveSettings, SETTINGS, TEXT_SIZES, THEMES, iconStore };

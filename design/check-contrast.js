@@ -1,6 +1,7 @@
 // Measures the text colours of each theme in themes.js against what they sit on (WCAG 2 contrast).
 // Small text needs 4.5, a pill's outline or a chart mark 3. Run: node design/check-contrast.js
-const THEMES = require('./themes.js');
+// `node design/check-contrast.js darks` measures darks.js (or creams.js) instead.
+const THEMES = require('./' + (process.argv[2] || 'themes') + '.js');
 
 const lum = hex => {
   const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)

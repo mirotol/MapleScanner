@@ -542,6 +542,12 @@ test('settings start on, are kept in a file, and refuse what they don\'t know', 
   assert.equal(readSettings(file).textSize, 1.3, 'kept for the next start');
   fs.writeFileSync(file, JSON.stringify({ textSize: 0.2 }));
   assert.equal(readSettings(file).textSize, 1, "a size that isn't on offer gives the default");
+  assert.equal(readSettings(file).theme, 'auto', "Windows' light or dark mode until the player picks one");
+  assert.equal(saveSettings(file, { theme: 'dark' }).theme, 'dark');
+  assert.equal(readSettings(file).theme, 'dark', 'kept for the next start');
+  assert.throws(() => saveSettings(file, { theme: 'purple' }), 'only the themes on offer');
+  fs.writeFileSync(file, JSON.stringify({ theme: 'night' }));
+  assert.equal(readSettings(file).theme, 'auto', "a theme that isn't on offer gives the default");
   fs.writeFileSync(file, 'not json');
   assert.deepEqual(readSettings(file), SETTINGS, 'a damaged file gives the defaults');
   fs.rmSync(dir, { recursive: true });
