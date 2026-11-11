@@ -52,6 +52,9 @@
       "signAndEditExecutable": false
     },
     "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
       "artifactName": "MapleScanner-Setup-${version}.${ext}",
       "deleteAppDataOnUninstall": false
     },

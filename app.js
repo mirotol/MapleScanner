@@ -752,6 +752,7 @@ for (const tab of Object.keys(TABS)) $(TABS[tab][0]).onclick = () => showTab(tab
 function showSettings() {
   $('settingChannelWatch').checked = settings.channelWatch;
   $('settingAutoUpdate').checked = settings.autoUpdate ?? true;
+  $('settingShareScans').checked = settings.shareScans ?? true;
   $('settingTextSize').value = String(settings.textSize ?? 1);
   showTextSize();
 }
@@ -879,6 +880,22 @@ async function setChannelWatch(on) {
   toggle.disabled = false;
 }
 $('settingChannelWatch').onchange = e => setChannelWatch(e.target.checked);
+
+// The local server starts or stops uploading at once (serve.js). Off, scans still show on the stall
+// card, they just aren't sent.
+async function setShareScans(on) {
+  const toggle = $('settingShareScans'), note = $('settingsNote');
+  toggle.disabled = true;
+  try {
+    settings = await api('/api/settings', { shareScans: on });
+    note.textContent = '';
+  } catch (err) {
+    note.textContent = `Couldn't save the setting: ${err.message}`;
+  }
+  showSettings();
+  toggle.disabled = false;
+}
+$('settingShareScans').onchange = e => setShareScans(e.target.checked);
 
 // ---------- card hotkey ----------
 // Only in the Windows app, which registers the key with Windows (desktop/main.js). The game

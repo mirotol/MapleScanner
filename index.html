@@ -125,6 +125,13 @@
       </span>
       <input type="checkbox" id="settingChannelWatch" role="switch">
     </label>
+    <label class="setting">
+      <span class="setting-text">
+        <b>Share my scans</b>
+        <span>Sends the shop listings MapleScanner reads off your screen to the shared price database, with an anonymous key for this install, so every player's prices stay fresh. Off, nothing is sent: you still get everyone else's prices, but the shops you walk past aren't added. See What it sends on the About tab.</span>
+      </span>
+      <input type="checkbox" id="settingShareScans" role="switch">
+    </label>
     <div class="setting keyed" id="hotkeySetting" hidden>
       <span class="setting-text">
         <b>Show or hide the stall card</b>
@@ -161,7 +168,8 @@
     <p id="aboutNote" class="note" role="status"></p>
 
     <h3>What it sends</h3>
-    <p>Prices need internet. MapleScanner sends the shop listings it read off your screen (item, seller, amount, price, channel, room and shop title) with an anonymous key made when it was installed. The key identifies this install, not you, and the price server keeps only a scrambled copy of it. Your IP address isn't stored. Seller names are public, as they are in the game. It never sends pictures of your screen, and never touches the game's memory, files or network traffic.</p>
+    <p>Prices need internet. MapleScanner sends the shop listings it read off your screen (item, seller, amount, price, channel, room and shop title) with an anonymous key made the first time it shares a scan. The key identifies this install, not you, and the price server keeps only a scrambled copy of it. Your IP address isn't stored. Seller names are public, as they are in the game. It never sends pictures of your screen, and never touches the game's memory, files or network traffic.</p>
+    <p>You can turn this off with Share my scans in Settings, or when installing. Prices still come in, and nothing about this install is sent: the key is only made the first time a scan is shared.</p>
 
     <h3>Licences and credits</h3>
     <ul>

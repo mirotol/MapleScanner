@@ -8,7 +8,7 @@ Everything comes from the picture of the game window, the same as a screenshot. 
 
 ## What it sends
 
-MapleScanner needs internet to show prices. It sends the shop listings it read off your screen (item, seller, amount, price, channel, room and shop title) with an anonymous key made when the app is installed. The key identifies the install, not you, and the server keeps only a hash of it, so bad data can be traced and removed. Your IP address isn't stored. Seller names are public, as they are in the game. Nothing else leaves your PC: no screenshots, no account details, nothing about the game itself.
+MapleScanner needs internet to show prices. It sends the shop listings it read off your screen (item, seller, amount, price, channel, room and shop title) with an anonymous key made the first time it shares a scan. The key identifies the install, not you, and the server keeps only a hash of it, so bad data can be traced and removed. Your IP address isn't stored. Seller names are public, as they are in the game. Nothing else leaves your PC: no screenshots, no account details, nothing about the game itself. Sharing is your choice: the installer asks, and Share my scans in Settings turns it off at any time. Off, nothing is sent and you still get everyone else's prices.
 
 ## Installing
 

@@ -107,7 +107,9 @@ function sendIcon(icons, id, res) {
 // textSize scales the pages and the stall card as a whole (CSS zoom), because their sizes are in
 // pixels. Only the sizes Settings offers.
 // autoUpdate: download new versions in the background (desktop/main.js). Only the app reads it.
-const SETTINGS = { channelWatch: true, cardHotkey: 'Scrolllock', textSize: 1, autoUpdate: true };
+// shareScans: send the listings read off the screen to the shared price database. Off, prices
+// still come in but nothing goes out. The installer asks first (build/installer.nsh).
+const SETTINGS = { channelWatch: true, cardHotkey: 'Scrolllock', textSize: 1, autoUpdate: true, shareScans: true };
 const TEXT_SIZES = [0.9, 1, 1.15, 1.3, 1.5];
 const allowed = (key, value) => typeof value === typeof SETTINGS[key] && (key !== 'textSize' || TEXT_SIZES.includes(value));
 
@@ -130,13 +132,29 @@ function saveSettings(file, changes) {
   return settings;
 }
 
+// The installer's privacy page leaves the player's answer in installer-choice.json, as
+// { "shareScans": true or false }, because it can't merge into settings.json. It's taken into the
+// settings on the next start and deleted, so a later change in Settings wins. Updates install
+// silently and leave no file, so they keep the setting.
+function takeInstallerChoice(dataDir, settingsFile) {
+  const file = path.join(dataDir, 'installer-choice.json');
+  let choice;
+  try { choice = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return; } // none, or damaged
+  if (typeof choice?.shareScans === 'boolean') saveSettings(settingsFile, { shareScans: choice.shareScans });
+  fs.rmSync(file, { force: true });
+}
+
 // dataDir holds the settings, the install key and the icons. cloudUrl is the shared price
 // database's Worker, and key this install's anonymous upload key.
 function start({ port = 0, dataDir, download, cloudUrl, key, fetch: cloudFetch }) {
   const settingsFile = path.join(dataDir, 'settings.json');
+  takeInstallerChoice(dataDir, settingsFile);
   const items = JSON.parse(fs.readFileSync(path.join(root, 'osms-items.json'), 'utf8'));
   const icons = iconStore(path.join(dataDir, 'icons'), items, download);
-  const cloud = createCloud({ url: cloudUrl, key: key ?? installKey(dataDir), itemList: items, ...(cloudFetch ? { fetch: cloudFetch } : {}) });
+  const cloud = createCloud({
+    url: cloudUrl, key: key ?? (() => installKey(dataDir)), sharing: readSettings(settingsFile).shareScans,
+    itemList: items, ...(cloudFetch ? { fetch: cloudFetch } : {}),
+  });
   cloud.start();
   const reads = {
     '/api/state': query => cloud.state({ full: query.has('full') }),
@@ -147,7 +165,11 @@ function start({ port = 0, dataDir, download, cloudUrl, key, fetch: cloudFetch }
   };
   const writes = {
     '/api/sightings': body => cloud.add(body.rows),
-    '/api/settings': body => saveSettings(settingsFile, body),
+    '/api/settings': body => {
+      const settings = saveSettings(settingsFile, body);
+      cloud.setSharing(settings.shareScans);
+      return settings;
+    },
   };
 
   const server = http.createServer((req, res) => {

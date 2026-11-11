@@ -20,7 +20,7 @@ const TIMEOUT_MS = 15e3;
 
 class BadInput extends Error {}
 
-// The anonymous key this install uploads with, made on first use. It's kept with the settings and
+// The anonymous key this install uploads with, made the first time it shares a scan. It's kept with the settings and
 // says nothing about the player. The Worker stores only a hash of it.
 function installKey(dir) {
   const file = path.join(dir, 'install.json');
@@ -40,7 +40,10 @@ function installKey(dir) {
 const listingKey = l => `${l.name}|${l.seller}|${l.qty}|${l.price}|${l.sold}`;
 const EXTRA = ['copies', 'channel', 'map', 'room', 'shop', 'stats'];
 
-function createCloud({ url, key, itemList, fetch = globalThis.fetch, now = Date.now, syncEvery = 30e3, sendEvery = 5e3, resendAfter = 10 * 60e3, log = console }) {
+// key is the install key, or a function giving it, so an install that never shares never makes one.
+// sharing is the shareScans setting. Off, scans are dropped as they come and nothing is uploaded,
+// while prices still sync, because reading prices sends nothing about the install.
+function createCloud({ url, key, sharing = true, itemList, fetch = globalThis.fetch, now = Date.now, syncEvery = 30e3, sendEvery = 5e3, resendAfter = 10 * 60e3, log = console }) {
   const rules = listingRules(itemList);
   const { facts } = rules;
   const listings = new Map(); // id -> listing with its item name, the last SEEN_DAYS only
@@ -56,7 +59,7 @@ function createCloud({ url, key, itemList, fetch = globalThis.fetch, now = Date.
     if (!url) throw new Error('No price server is set.');
     const res = await fetch(`${url}${route}`, {
       method,
-      headers: { 'Content-Type': 'application/json', ...(method === 'POST' ? { 'X-Install-Key': key } : {}) },
+      headers: { 'Content-Type': 'application/json', ...(method === 'POST' ? { 'X-Install-Key': typeof key === 'function' ? key() : key } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -75,6 +78,7 @@ function createCloud({ url, key, itemList, fetch = globalThis.fetch, now = Date.
     if (!Array.isArray(rows)) throw new BadInput('Expected a list of rows.');
     const bad = rows.map(rules.problem).find(Boolean);
     if (bad) throw new BadInput(bad);
+    if (!sharing) return { saved: 0, skipped: rows.length, sharing };
     const t = now();
     let kept = 0;
     for (const row of rows) {
@@ -90,7 +94,7 @@ function createCloud({ url, key, itemList, fetch = globalThis.fetch, now = Date.
   }
 
   async function send() {
-    if (sending || !queue.length || blocked) return;
+    if (sending || !queue.length || blocked || !sharing) return;
     sending = true;
     const batch = queue.slice(0, BATCH);
     try {
@@ -155,7 +159,13 @@ function createCloud({ url, key, itemList, fetch = globalThis.fetch, now = Date.
   }
 
   function status() {
-    return { online, lastSync, waiting: queue.length, blocked, error, connected: !!url };
+    return { online, lastSync, waiting: queue.length, blocked, error, connected: !!url, sharing };
+  }
+
+  // Turned off, scans waiting to go are dropped too, so nothing more leaves the PC.
+  function setSharing(on) {
+    sharing = !!on;
+    if (!sharing) queue = [];
   }
 
   // What the pages need to judge prices, in the shape the old local database gave:
@@ -184,7 +194,7 @@ function createCloud({ url, key, itemList, fetch = globalThis.fetch, now = Date.
 
   function stop() { timers.forEach(clearInterval); timers = []; }
 
-  return { add, send, sync, state, history, status, start, stop };
+  return { add, send, sync, state, history, status, start, stop, setSharing };
 }
 
 module.exports = { createCloud, installKey, BadInput, PRODUCTION_URL };
