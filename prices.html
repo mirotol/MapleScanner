@@ -152,7 +152,18 @@
   html { scrollbar-gutter: stable; }
   html:has(dialog.card[open]) { overflow: hidden; }
   dialog.card { width: min(1040px, calc(100vw - 32px)); max-width: none; height: calc(100vh - 32px); max-height: none; padding: 0; background: var(--night); border-radius: 12px; overflow: hidden; }
+  /* dvh is the screen as it's showing now. Safari on an iPhone counts vh as the screen with its
+     address bar and toolbar hidden, so with them shown the card was taller than the screen, and
+     being centred, cut off at the top and bottom (Nov 11; Firefox showed it whole). */
+  dialog.card { height: calc(100dvh - 32px); }
   dialog.card[open] { display: flex; flex-direction: column; }
+  /* On a phone the card is the whole screen, as cozy.markets shows an item (the user's choice,
+     Nov 11): a 16 px frame of the list around it only took room from the chart and listings. */
+  @media (max-width: 560px) {
+    dialog.card { width: 100%; height: 100dvh; max-height: none; margin: 0; inset: 0; border-radius: 0; }
+    .card-head { padding: 14px 16px 12px; }
+    .card-body { padding: 12px 16px 20px; }
+  }
   .card p { margin: 0; color: inherit; font-size: inherit; }
   .card-head { flex: none; background: var(--dusk); padding: 16px 20px 14px; display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start; position: relative; }
   .card-head .who { display: flex; gap: 12px; align-items: center; flex: 1 1 240px; min-width: 0; padding-right: 36px; }
@@ -242,6 +253,58 @@
   .stat { display: inline-block; font-size: 12px; background: var(--dusk); border-radius: 4px; padding: 0 6px; margin: 1px 4px 1px 0; white-space: nowrap; }
   .stat .up { color: var(--exp); font-weight: 700; }
   .stat .down { color: var(--hp); font-weight: 700; }
+  .rows-head .phone-sort { display: none; }
+
+  /* ---------- the item card on a phone ----------
+     Nov 11, after cozy.markets' phone card: its top is short and every listing fits the width,
+     where ours took half the screen before the chart and cut the price column off at the edge.
+     The top keeps the usual price and the cheapest ask big, side by side, then the confidence
+     with its reasoning written out (players rarely tap for it), then last sold and the range
+     smaller. Each listing is two lines instead of a table row: price and where on the first,
+     seller and when on the second, a gear's stats under them. Not a card per listing: those
+     hold a picture of the map, and game pictures are never published. Newest and Cheapest take
+     the column headers' place. */
+  @media (max-width: 560px) {
+    /* The whole card scrolls, not just the part under the top, which would stay on screen and
+       leave under half of it for the chart and listings. The × stays in the corner. */
+    dialog.card[open] { display: block; overflow-y: auto; overscroll-behavior: contain; }
+    .card-body { overflow: visible; }
+    .close { position: fixed; z-index: 3; box-shadow: 0 1px 4px var(--shade); }
+    .card-head { gap: 12px; }
+    .card-head .who { flex-basis: 100%; gap: 10px; }
+    .card-head .who .icon { width: 36px; height: 36px; }
+    .card-head h2 { font-size: 20px; }
+    .card-head .who p { font-size: 12.5px; }
+    .close { top: 10px; right: 10px; }
+    .figures { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 16px; }
+    .fig > span { white-space: normal; font-size: 12px; }
+    .fig b { font-size: 22px; }
+    .fig.main b { font-size: 24px; }
+    .fig.sure { grid-column: 1 / -1; }
+    .fig.sure b { font-size: 15px; line-height: 22px; }
+    .fig.sure > span.why { max-width: none; font-size: 12.5px; }
+    .fig.sure ~ .fig b { font-size: 17px; }
+    .fig b.dim { font-size: 16px; }
+
+    .card-controls { gap: 8px; }
+    .seg button { padding: 4px 9px; }
+    .chart { padding: 6px 4px 2px; }
+
+    .rows-head { align-items: center; }
+    .rows-head .phone-sort { display: inline-flex; margin-left: auto; }
+    .rows, .rows tbody { display: block; }
+    .rows tr.head { display: none; }
+    .rows tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "price where" "seller when" "stats stats"; column-gap: 12px; row-gap: 2px; padding: 9px 0; border-top: 1px solid var(--dusk); }
+    .rows td { padding: 0; border: 0; min-width: 0; }
+    .rows td.price { grid-area: price; text-align: left; font-size: 16px; }
+    .rows td.price small { display: inline; margin-left: 6px; }
+    .rows td.where { grid-area: where; text-align: right; }
+    .rows td.seller { grid-area: seller; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+    .rows td.seller small { display: inline; font-size: 12px; }
+    .rows td.seller small::before { content: " · "; }
+    .rows td.when { grid-area: when; text-align: right; font-size: 12.5px; }
+    .rows td.stats { grid-area: stats; margin-top: 3px; }
+  }
   .more { margin-top: 10px; }
 </style>
 </head>

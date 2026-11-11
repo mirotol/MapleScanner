@@ -209,11 +209,17 @@ function statChips(name, stats) {
   return chips.join('') + `<span class="stat">Slots ${stats.slots ?? '?'}/${facts.slots(name) ?? '?'}</span>`;
 }
 
+// A phone's width (prices.html draws the list and card differently there). The card is drawn
+// again when it changes, for the chart's width.
+const PHONE = matchMedia('(max-width: 560px)');
+PHONE.addEventListener('change', () => renderCard());
+
 // The frame both chart views share: a price scale fitted to `prices` (chartRange), round time
 // marks (timeTicks), and the usual price and what an NPC pays as lines when they're on it.
 function chartFrame(name, prices, usual, span) {
   const now = Date.now(), npc = facts.npc(name);
-  const W = 900, H = 230, L = 52, R = 14, T = 12, B = 26;
+  // A phone draws the chart narrower, so its words aren't shrunk to a few pixels with it
+  const W = PHONE.matches ? 380 : 900, H = PHONE.matches ? 210 : 230, L = 52, R = 14, T = 12, B = 26;
   const { lo, hi, step } = chartRange(prices, usual?.price ?? null);
   const x = t => L + (W - L - R) * (1 - (now - t) / span);
   const y = p => +(T + (H - T - B) * (1 - (Math.min(Math.max(p, lo), hi) - lo) / (hi - lo))).toFixed(1);
@@ -307,7 +313,7 @@ function statsHtml(name, votes) {
 function rowsHtml(name, list, order) {
   const gear = isGear(name), set = facts.recharges(name);
   const visible = card.all ? list : list.slice(0, SHOW_ROWS);
-  const head = `<tr><th class="sortable${order === 'when' ? ' sorted' : ''}" data-sort="when">When${order === 'when' ? ' ↓' : ''}</th><th>Where</th><th>Seller</th>${gear ? '<th>Stats</th>' : ''}<th class="num sortable${order === 'price' ? ' sorted' : ''}" data-sort="price">Price${order === 'price' ? ' ↑' : ''}</th></tr>`;
+  const head = `<tr class="head"><th class="sortable${order === 'when' ? ' sorted' : ''}" data-sort="when">When${order === 'when' ? ' ↓' : ''}</th><th>Where</th><th>Seller</th>${gear ? '<th>Stats</th>' : ''}<th class="num sortable${order === 'price' ? ' sorted' : ''}" data-sort="price">Price${order === 'price' ? ' ↑' : ''}</th></tr>`;
   const body = visible.map(v => {
     const each = set ? `1 set of ${v.qty.toLocaleString('en-US')}` : !gear && v.qty > 1 ? `each, ${v.qty.toLocaleString('en-US')} for ${fmt(v.price)}` : '';
     const copies = v.copies > 1 ? `${v.copies} copies` : '';
@@ -316,7 +322,7 @@ function rowsHtml(name, list, order) {
       <td class="when">${ago(v.t)}</td>
       <td class="where${whereText(v) ? '' : ' unknown'}">${esc(whereText(v)) || 'not known'}</td>
       <td class="seller">${esc(v.s || 'Unknown')}${v.shop ? `<small title="${esc(v.shop)}">${esc(v.shop)}</small>` : ''}</td>
-      ${gear ? `<td>${statChips(name, v.stats)}</td>` : ''}
+      ${gear ? `<td class="stats">${statChips(name, v.stats)}</td>` : ''}
       <td class="num price">${v.sold ? '<span class="badge">sold</span>' : ''}${fmt(v.u)}${under ? `<small>${under}</small>` : ''}</td></tr>`;
   }).join('');
   const more = list.length > visible.length ? `<button class="more" data-do="showAll">Show all ${list.length.toLocaleString('en-US')}</button>` : '';
@@ -380,7 +386,8 @@ function cardHtml() {
       </div>
       ${leftOut ? `<p class="left-out">${plural(leftOut, 'listing')} without read stats ${leftOut === 1 ? 'is' : 'are'} left out while Stats is on.</p>` : ''}
       <div class="chart">${chartView === 'trend' ? trendHtml(name, kept, usual, win, show) : chartHtml(name, list, usual, win)}</div>
-      <div class="rows-head"><h3>${heading}</h3><span>${plural(list.length, 'listing')}, ${inLast}${order === 'price' ? ', cheapest first' : ', newest first'}</span></div>
+      <div class="rows-head"><h3>${heading}</h3><span>${plural(list.length, 'listing')}, ${inLast}${order === 'price' ? ', cheapest first' : ', newest first'}</span>
+        <div class="seg phone-sort" role="group" aria-label="Order">${[['when', 'Newest'], ['price', 'Cheapest']].map(([key, label]) => `<button class="${key === order ? 'on' : ''}" data-sort="${key}">${label}</button>`).join('')}</div></div>
       ${list.length ? rowsHtml(name, list, order) : '<p class="quiet">Nothing in this time and these filters.</p>'}
     </div>`;
 }
@@ -388,9 +395,11 @@ function cardHtml() {
 // Redraws the card in place, keeping where it was scrolled to.
 function renderCard(fresh = false) {
   if (!card) return;
-  const scroll = fresh ? 0 : $('card').querySelector('.card-body')?.scrollTop ?? 0;
+  // on a phone the whole card scrolls (prices.html), elsewhere the part under its top
+  const scroller = () => (PHONE.matches ? $('card') : $('card').querySelector('.card-body'));
+  const scroll = fresh ? 0 : scroller()?.scrollTop ?? 0;
   $('card').innerHTML = cardHtml();
-  $('card').querySelector('.card-body').scrollTop = scroll;
+  scroller().scrollTop = scroll;
 }
 
 // Every item ever listed comes from the shared price database (`full`), with the recent listings
