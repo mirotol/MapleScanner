@@ -26,6 +26,15 @@ jobs:
             echo "Tag $GITHUB_REF_NAME doesn't match package.json version $version"
             exit 1
           fi
+      # Every release has notes written for players, checked before the slow build.
+      - name: Release notes exist
+        shell: bash
+        run: |
+          notes="release-notes/${GITHUB_REF_NAME#v}.md"
+          if [ ! -s "$notes" ]; then
+            echo "Missing $notes: write the release notes for players before tagging"
+            exit 1
+          fi
       - run: npm ci
       - run: npm test
       - run: npm run dist
@@ -38,10 +47,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           files=(dist/MapleScanner-Setup-*.exe dist/MapleScanner-Setup-*.exe.blockmap dist/latest.yml)
+          notes="release-notes/${GITHUB_REF_NAME#v}.md"
           ls -l "${files[@]}"
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$notes"
           else
-            gh release create "$GITHUB_REF_NAME" "${files[@]}" --draft --verify-tag --title "${GITHUB_REF_NAME#v}"
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" --draft --verify-tag --title "${GITHUB_REF_NAME#v}" --notes-file "$notes"
           fi
           gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name'
