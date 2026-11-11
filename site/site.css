@@ -9,10 +9,24 @@
 .site-head nav a:hover { color: var(--cloud); }
 .site-head nav a[aria-current] { color: var(--cloud); border-bottom-color: var(--meso); }
 /* the light and dark button at the header's end: an icon of what a click switches to */
-.site-head .theme-pick { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 8px; box-shadow: none; color: var(--mist); }
-.site-head .theme-pick:hover { background: var(--dusk); color: var(--cloud); }
-.site-head .theme-pick svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.site-head .head-button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 8px; box-shadow: none; color: var(--mist); }
+.site-head .head-button:hover { background: var(--dusk); color: var(--cloud); }
+.site-head .head-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.site-head .menu-button { display: none; }
+.menu-button .cross, .menu-button[aria-expanded="true"] .bars { display: none; }
+.menu-button[aria-expanded="true"] .cross { display: inline; }
 @media (max-width: 800px) { .site-head { padding: 0 16px; } }
+/* On a phone the links don't fit beside the name, and wrapped under it they took a second
+   line on every page. They fold into a menu button that opens them as a list under the header,
+   the chosen page marked by the same orange line, on its left. */
+@media (max-width: 600px) {
+  .site-head { gap: 4px; }
+  .site-head .menu-button { display: grid; }
+  .site-head nav { display: none; order: 1; flex: 1 0 100%; flex-direction: column; gap: 0; padding: 4px 0 10px; border-top: 1px solid var(--dusk); }
+  .site-head.open nav { display: flex; }
+  .site-head nav a { font-size: 16px; padding: 13px 12px; margin: 0; border-bottom: 0; border-left: 2px solid transparent; }
+  .site-head nav a[aria-current] { border-left-color: var(--meso); }
+}
 
 /* ---------- the front page ---------- */
 .page { max-width: 1040px; margin: 0 auto; padding: 0 24px 48px; font-size: 16px; line-height: 1.55; }

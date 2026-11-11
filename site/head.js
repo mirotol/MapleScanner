@@ -1,4 +1,4 @@
-// The website's light and dark button, in the header of every page. Loaded in <head>, so a saved
+// The buttons in the header of every page: the menu on a phone, and light or dark. Loaded in <head>, so a saved
 // choice is in place before the page is drawn. Without one the site follows the visitor's system
 // (theme.css). A choice is kept in this browser only, and picking what the system already shows
 // goes back to following it, so a visitor who switches once and back isn't stuck.
@@ -22,6 +22,23 @@
     button.title = button.ariaLabel = now ? 'Switch to light' : 'Switch to dark';
   }
 
+  // The menu button, shown only on a phone (site.css): it opens the page links under the header.
+  // Escape, a tap elsewhere or a wider window closes it.
+  function menu() {
+    const head = document.querySelector('.site-head');
+    const button = document.getElementById('menuButton');
+    if (!head || !button) return;
+    const set = (open) => {
+      head.classList.toggle('open', open);
+      button.setAttribute('aria-expanded', open);
+      button.ariaLabel = open ? 'Close menu' : 'Menu';
+    };
+    button.onclick = () => set(!head.classList.contains('open'));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && head.classList.contains('open')) { set(false); button.focus(); } });
+    document.addEventListener('click', e => { if (!head.contains(e.target)) set(false); });
+    matchMedia('(max-width: 600px)').addEventListener('change', e => { if (!e.matches) set(false); });
+  }
+
   // A switch fades in over a moment instead of flashing the screen (.theme-fade in theme.css).
   let fading = 0;
   function fade() {
@@ -31,6 +48,7 @@
   }
 
   addEventListener('DOMContentLoaded', () => {
+    menu();
     const button = document.getElementById('themePick');
     if (!button) return;
     show(button);

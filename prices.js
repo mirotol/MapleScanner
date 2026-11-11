@@ -411,11 +411,18 @@ function newList() {
   window.scrollTo(0, 0);
 }
 
-$('search').addEventListener('input', newList);
+// The X shows only while there's something to clear.
+function clearSearch() {
+  $('search').value = '';
+  $('clearSearch').hidden = true;
+  newList();
+}
+$('search').addEventListener('input', () => { $('clearSearch').hidden = !$('search').value; newList(); });
 $('search').addEventListener('keydown', e => {
   if (e.key === 'Enter' && shownItems()[0]) openCard(shownItems()[0].name).catch(err => say(err.message, true)); // Enter opens the best match
-  if (e.key === 'Escape') { $('search').value = ''; newList(); }
+  if (e.key === 'Escape') clearSearch();
 });
+$('clearSearch').addEventListener('click', () => { clearSearch(); $('search').focus(); });
 $('list').addEventListener('click', e => {
   const col = e.target.closest('[data-col]');
   if (col) {

@@ -27,7 +27,15 @@
      second scroll area inside the Prices frame. */
   .topbar { position: sticky; top: 0; z-index: 2; background: var(--night); padding: 14px 0 6px; }
   .topbar-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 20px; }
-  .topbar-row input[type=search] { flex: 1 1 260px; max-width: 440px; font-size: 15px; padding: 8px 12px; border-radius: 8px; margin-bottom: 7px; }
+  /* The search box has its own clear button: the browser's own was missing on phones (Safari
+     shows none) and tiny elsewhere, so it's hidden for one look everywhere. */
+  .search { position: relative; flex: 1 1 260px; max-width: 440px; margin-bottom: 7px; }
+  .search input { width: 100%; font-size: 15px; padding: 8px 40px 8px 12px; border-radius: 8px; }
+  .search input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+  .search .clear { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 6px; box-shadow: none; background: none; color: var(--mist); }
+  .search .clear:hover { background: var(--ridge); color: var(--cloud); }
+  .search .clear svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+  .search .clear[hidden] { display: none; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .chips + .chips { margin-top: 6px; }
   .chips:empty { display: none; }
@@ -191,7 +199,7 @@
 <main>
   <div class="topbar" id="topbar">
     <div class="topbar-row">
-      <input id="search" type="search" placeholder="Search items..." aria-label="Search items">
+      <div class="search"><input id="search" type="search" placeholder="Search items..." aria-label="Search items"><button type="button" class="clear" id="clearSearch" aria-label="Clear search" title="Clear search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="chips tabs" id="tabs"></div>
       <label class="surepick level1" title="Hides prices with low confidence: under 5 sellers, or sellers far apart.">Hide <span class="dots" role="img" aria-label="low confidence"><i class="on"></i><i></i><i></i></span><input type="checkbox" role="switch" id="hideThin" aria-label="Hide prices with low confidence"></label>
     </div>
