@@ -48,8 +48,7 @@
       "!**/*.map"
     ],
     "win": {
-      "target": "nsis",
-      "signAndEditExecutable": false
+      "target": "nsis"
     },
     "nsis": {
       "oneClick": false,

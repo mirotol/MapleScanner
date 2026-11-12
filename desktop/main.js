@@ -162,6 +162,7 @@ async function createMainWindow() {
     ...bounds,
     show: !maximized, // a maximized window is shown once maximized, so it doesn't open small first
     backgroundColor: colours().night,
+    icon: path.join(__dirname, 'icon.png'), // the taskbar button (tools/make-icon.js)
     titleBarStyle: 'hidden',
     titleBarOverlay: titleBar(),
     webPreferences: {
