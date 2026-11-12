@@ -9,11 +9,16 @@ const ADMIN = 'a'.repeat(40);
 const KEY_A = 'a1'.repeat(32), KEY_B = 'b2'.repeat(32);
 const DAY = 864e5;
 
-// cache: a made-up copy of Cloudflare's, which never forgets
+// cache: a made-up copy of Cloudflare's, which never forgets. Like the real one, it hands a kept
+// answer back saying browsers may keep it for 4 hours.
 function worker({ syncPage, cache } = {}) {
   const env = { DB: d1(), ADMIN_TOKEN: ADMIN };
   const kept = new Map();
-  const ctx = cache ? { cache: { match: async key => kept.get(key)?.clone(), put: async (key, res) => { kept.set(key, res); } } } : undefined;
+  const match = async key => {
+    const res = kept.get(key)?.clone();
+    return res && new Response(res.body, { headers: { ...Object.fromEntries(res.headers), 'Cache-Control': 'public, max-age=14400' } });
+  };
+  const ctx = cache ? { kept, cache: { match, put: async (key, res) => { kept.set(key, res); } } } : undefined;
   const { handle } = createApi(items, { syncPage });
   const call = async (method, path, { body, key, token, headers = {} } = {}) => {
     const res = await handle(new Request(`http://worker${path}`, {
@@ -28,7 +33,7 @@ function worker({ syncPage, cache } = {}) {
   const sync = async (after = '') => (await call('GET', `/v1/sync${after ? `?after=${after}` : ''}`)).body;
   const history = async name => (await call('GET', `/v1/history?name=${encodeURIComponent(name)}`)).body;
   const itemList = async () => (await call('GET', '/v1/items')).body.items;
-  return { env, call, upload, admin, sync, history, itemList };
+  return { env, call, upload, admin, sync, history, itemList, kept };
 }
 
 const shop = (name, seller, price, extra = {}) => ({ list: 'shop', name, seller, qty: 1, price, sold: false, ...extra });
@@ -192,7 +197,8 @@ test('a read asked with &shared is one copy for everyone, and the app still read
   const w = worker({ cache: true });
   await w.upload([shop('Red Potion', 'a', 50)]);
   const first = await w.call('GET', '/v1/sync?after=0:0&shared');
-  assert.equal(first.caching, 'public, max-age=60');
+  assert.equal(first.caching, 'no-store', 'a browser keeps nothing');
+  assert.equal(w.kept.get('http://worker/v1/sync?after=0:0&shared').headers.get('Cache-Control'), 'public, max-age=60');
   assert.equal((await w.call('GET', '/v1/items?shared')).body.items[0].listings, 1);
   assert.equal((await w.call('GET', '/v1/history?name=Red%20Potion&shared')).body.length, 1);
   await w.upload([shop('Red Potion', 'b', 60)]);
@@ -204,6 +210,7 @@ test('a read asked with &shared is one copy for everyone, and the app still read
   assert.equal((await w.history('Red Potion')).length, 2);
   const again = await w.call('GET', '/v1/sync?after=0:0&shared');
   assert.deepEqual(again.body, first.body, 'the copy, not a new read');
+  assert.equal(again.caching, 'no-store', 'the copy too');
   assert.equal((await w.call('GET', '/v1/items?shared')).body.items[0].listings, 1);
   assert.equal((await w.call('GET', '/v1/history?name=Red%20Potion&shared')).body.length, 1);
   // a copy that's behind loses nothing: its cursor is a new address, so the next sync has the rest

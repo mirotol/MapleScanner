@@ -263,11 +263,18 @@ function createApi(itemList, { syncPage = SYNC_PAGE } = {}) {
         const read = reads[url.pathname];
         if (read) {
           if (!cache || !url.searchParams.has('shared')) return json(await read(env, url));
+          // Only the copy says how long it lasts. A browser is told to keep nothing, because
+          // Cloudflare sends a kept copy out with the zone's own browser time (4 hours, Nov 12).
+          const toBrowser = res => {
+            const out = new Response(res.body, res);
+            out.headers.set('Cache-Control', 'no-store');
+            return out;
+          };
           const kept = await cache.match(url.href);
-          if (kept) return kept;
+          if (kept) return toBrowser(kept);
           const answer = json(await read(env, url), 200, { 'Cache-Control': `public, max-age=${SHARED_SECONDS}` });
           waitUntil(cache.put(url.href, answer.clone()));
-          return answer;
+          return toBrowser(answer);
         }
         if (url.pathname === '/' || url.pathname === '/v1') return json({ name: 'MapleScanner shared prices', ok: true });
       }
