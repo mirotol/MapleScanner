@@ -1,7 +1,7 @@
 {
   "name": "maple-scanner",
   "productName": "MapleScanner",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Live prices for MapleStory Classic shops, read from your game window",
   "license": "GPL-3.0-or-later",
   "author": "mirotol",
