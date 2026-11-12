@@ -91,9 +91,9 @@
   #list td span.under.go { color: var(--sky); font-weight: 600; }
   .empty { padding: 28px; text-align: center; color: var(--mist); }
   @media (max-width: 760px) { #list .wide { display: none; } }
-  /* On a phone each item is two lines, like a phone's price lists (CoinMarketCap, Apple Stocks):
-     the icon, name and kind on the left, and on the right the usual price with the confidence
-     dots and the cheapest ask under it. When it was last seen goes after the kind. The other
+  /* On a phone each item is a few lines, like a phone's price lists (CoinMarketCap, Apple Stocks):
+     the icon, name and kind on the left, and on the right the usual price, then the confidence
+     with the column's own words, then the cheapest ask. When it was last seen goes after the kind. The other
      columns and their headers are hidden, so nothing scrolls sideways (before Nov 11 the
      columns after the usual price were off the screen's edge), and a sort menu in the bar
      takes the headers' place. */
@@ -112,6 +112,8 @@
     #list td span.phone { display: inline; }
     #list span.phone.under { display: flex; justify-content: flex-end; align-items: center; margin-top: 2px; white-space: nowrap; }
     #list .item-name { min-width: 0; padding-left: 0; }
+    /* a long kind wraps, or one unbroken line of it pushed the prices past the screen's edge */
+    #list .kind { white-space: normal; }
     #list td.usual { padding-right: 0; vertical-align: top; padding-top: 10px; }
     /* The tabs and the type chips are one line each that swipes sideways, as phone apps show
        chips: wrapped, Equip's ten types took three lines and the tabs two, and the bar, which

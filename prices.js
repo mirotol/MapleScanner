@@ -157,10 +157,13 @@ function renderList() {
       const usual = s ? `<b>${fmt(i.usual.price)}</b>${underNpc(i.usual, npc) ? `<span class="under wide">NPC pays ${fmt(npc)}</span>` : ''}` : '<span class="quiet">—</span>';
       const sure = s ? `<td class="sure level${s.level}" title="${esc(s.why)}">${dotsTag(s)}${esc(s.short)}</td>` : '<td class="sure"></td>';
       const low = i.low ? `${fmt(i.low.u)}<span class="under go">${esc(whereText(i.low) || 'place not known')}</span>` : '<span class="quiet">none</span>';
-      // On a phone (prices.html) the row is two lines with no other columns: when it was last
-      // seen goes after the kind, and the dots and cheapest ask under the price.
+      // On a phone (prices.html) the row has no other columns: when it was last seen goes after
+      // the kind, and under the price come the confidence, worded as in its column, and the
+      // cheapest ask on a line of its own. Before (Nov 12) the dots stood before `ask 0.4`,
+      // which read as the confidence's label.
       const seen = i.last ? `<span class="phone"> · ${ago(i.last)}</span>` : '';
-      const under = `<span class="phone under">${s ? dotsTag(s) : ''}${i.low ? `ask ${fmt(i.low.u)}` : 'no ask'}</span>`;
+      const under = `${s ? `<span class="phone under">${dotsTag(s)}${esc(s.short)}</span>` : ''
+        }<span class="phone under">${i.low ? `cheapest ask ${fmt(i.low.u)}` : 'no ask'}</span>`;
       return `<tr class="item" data-name="${esc(i.name)}">
         <td class="item-name"><span class="named">${iconTag(facts.icon(i.name))}<span><span class="name">${esc(i.name)}</span><span class="kind">${esc(i.kind.kind)}${seen}</span></span></span></td>
         <td class="num usual">${usual}${under}</td>
