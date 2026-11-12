@@ -162,6 +162,7 @@
   @media (max-width: 560px) {
     dialog.card { width: 100%; height: 100dvh; max-height: none; margin: 0; inset: 0; border-radius: 0; }
   }
+  dialog.card:focus { outline: none; } /* it takes the focus when opened (openCard in prices.js) */
   .card p { margin: 0; color: inherit; font-size: inherit; }
   .card-head { flex: none; background: var(--dusk); padding: 16px 20px 14px; display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start; position: relative; }
   .card-head .who { display: flex; gap: 12px; align-items: center; flex: 1 1 240px; min-width: 0; padding-right: 36px; }
@@ -327,7 +328,7 @@
   </div>
   <div class="wrap"><table id="list"></table></div>
 </main>
-<dialog class="card" id="card" aria-label="Item prices"></dialog>
+<dialog class="card" id="card" aria-label="Item prices" tabindex="-1"></dialog>
 <script src="pricing.js"></script>
 <script src="market.js"></script>
 <script src="prices.js"></script>

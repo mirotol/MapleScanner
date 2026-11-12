@@ -201,7 +201,9 @@ async function openCard(name) {
   const trend = chartView === 'trend';
   card = { name, history, win: trend ? Math.max(win, 7 * DAY_MS) : win, show: trend ? 'all' : show, sortBy: null, filter: null, statsOpen: false, all: false };
   renderCard(true);
-  if (!$('card').open) $('card').showModal();
+  // An opening dialog focuses its first button, the ×, which then wore the focus ring as if
+  // chosen (Nov 12). The card takes the focus itself, and Tab still goes to the × first.
+  if (!$('card').open) { $('card').showModal(); $('card').focus(); }
   window.history.replaceState(null, '', `?item=${encodeURIComponent(name)}`); // so the address is a link to this item
 }
 
