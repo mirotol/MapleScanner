@@ -1,0 +1,12 @@
+// www.maplescanner.app, which only redirects to maplescanner.app (worker.js).
+//   npm run site:www:deploy    needs `npx wrangler login`, like site:deploy
+// The custom domain makes the DNS record for www by itself.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "maplescanner-www",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "www.maplescanner.app", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false
+}

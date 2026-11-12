@@ -17,7 +17,8 @@
     "cloud:deploy": "wrangler deploy --config cloud/wrangler.jsonc",
     "site:build": "node site/build.js",
     "site:dev": "node site/build.js && wrangler dev --config site/wrangler.jsonc --port 8790",
-    "site:deploy": "node site/build.js && wrangler deploy --config site/wrangler.jsonc"
+    "site:deploy": "node site/build.js && wrangler deploy --config site/wrangler.jsonc",
+    "site:www:deploy": "wrangler deploy --config site/www/wrangler.jsonc"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",
