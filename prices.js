@@ -381,9 +381,9 @@ function cardHtml() {
   const who = `<div class="who">${iconTag(facts.icon(name))}<div><h2>${esc(name)}</h2><p>${esc(factLine)}</p></div></div>`;
   const close = '<button class="close" data-do="close" aria-label="Close">×</button>';
 
-  // On a phone the item, its usual price, its cheapest ask and the × stay in a bar at the top
-  // while the rest of the card scrolls under it (prices.html), and the head leaves them out.
-  return `<div class="card-bar">${who}<div class="figures">${usualFig}${lowFig}</div>${close}</div>
+  // On a phone only the item and the × stay in a bar at the top while the rest of the card,
+  // prices too, scrolls under it (prices.html), and the head leaves the item and × out.
+  return `<div class="card-bar">${who}${close}</div>
     <div class="card-head">
       ${who}
       <div class="figures">${figures}</div>

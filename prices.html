@@ -266,20 +266,19 @@
      the column headers' place. */
   @media (max-width: 560px) {
     /* The whole card scrolls, not just the part under the top, which would stay on screen and
-       leave under half of it for the chart and listings. Only a bar with the item, its usual
-       price, its cheapest ask and the × stays (the user's choice, Nov 11), and the head under
-       it leaves those out. */
+       leave under half of it for the chart and listings. Only a bar with the item's icon and
+       name and the × stays (the user's choice, Nov 12: the usual price and cheapest ask
+       stayed too on Nov 11, and now scroll with the rest), and the head under it leaves
+       those out. */
     dialog.card[open] { display: block; overflow-y: auto; overscroll-behavior: contain; }
     .card-body { overflow: visible; }
-    .card-bar { display: block; position: sticky; top: 0; z-index: 3; background: var(--dusk); padding: 12px 16px 10px; box-shadow: 0 1px 0 var(--ridge); }
-    .card-bar .who { display: flex; gap: 10px; align-items: center; min-width: 0; padding-right: 40px; margin-bottom: 8px; }
+    .card-bar { display: block; position: sticky; top: 0; z-index: 3; background: var(--dusk); padding: 10px 16px; box-shadow: 0 1px 0 var(--ridge); }
+    .card-bar .who { display: flex; gap: 10px; align-items: center; min-width: 0; padding-right: 40px; }
     .card-bar .who .icon { width: 32px; height: 32px; margin: 0; flex: none; }
     .card-bar h2 { font-size: 18px; line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
     .card-bar .who p { color: var(--mist); font-size: 12px; }
     .card-bar .close { top: 10px; right: 10px; }
-    .card-bar .fig b { font-size: 20px; }
-    .card-bar .fig.main b { font-size: 22px; }
-    .card-head .who, .card-head .fig.main, .card-head .fig.ask, .card-head .close { display: none; }
+    .card-head .who, .card-head .close { display: none; }
     .card-head { gap: 12px; padding: 12px 16px; }
     .card-body { padding: 12px 16px 20px; }
     .figures { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 16px; }
