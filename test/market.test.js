@@ -76,7 +76,7 @@ test('sold beats asked once five sellers have sold over two days', () => {
   const sales = [...sold5, vote(1000, 'Fir'), vote(1100, 'Gum')];
   assert.deepEqual([at(sales).price, at(sales).basis, at(sales).firm], [600, 'sold', true]);
   const four = [...sold5.slice(0, 4), vote(1000, 'Fir'), vote(1100, 'Gum')];
-  assert.equal(at(four).basis, 'asking', 'four sellers sold is not enough');
+  assert.deepEqual([at(four).price, at(four).firm, at(four).lowered], [600, false, true], 'four sellers sold is not enough to be firm, but lowers the price');
 });
 
 test('one seller selling a lot is still one seller', () => {
@@ -424,4 +424,63 @@ test('an ask is only tied to a sale by what is sure', () => {
   // A hidden name plate could be any shop, so an unknown seller's ask is never tied to a sale
   assert.equal(soldSince(vote(125, '', false, NOW - 1000), [vote(125, '', true)]), false);
   assert.equal(soldSince(vote(125, '', false, NOW - 1000), [vote(125, 'Dyle', true)]), false);
+});
+
+// ---------- a few sales, far-below prices and the hover (Nov 12) ----------
+
+test('three sellers\' sales lower a usual price taken from asks, never raise it', () => {
+  const asks = [vote(2000, 'Fir'), vote(2100, 'Gum'), vote(2500, 'Holly')];
+  const sold3 = [vote(340, 'Alder', true), vote(349, 'Birch', true), vote(400, 'Cedar', true)];
+  const m = at([...asks, ...sold3]);
+  assert.deepEqual([m.price, m.basis, m.lowered, m.from, m.firm], [349, 'sold', true, 3, false]);
+  assert.equal(at([...asks, ...sold3.slice(0, 2)]).price, 2000, 'two sellers sold: one cheap sale would set it');
+  const dear = at([...asks, vote(5000, 'Alder', true), vote(5200, 'Birch', true), vote(6000, 'Cedar', true)]);
+  assert.deepEqual([dear.price, dear.basis, dear.lowered], [2000, 'asking', false], 'sales above the asks change nothing');
+  const one = at([...asks, vote(300, 'Alder', true), vote(310, 'Alder', true), vote(320, 'Alder', true)]);
+  assert.equal(one.price, 2000, 'one seller selling a lot is one seller');
+});
+
+test('a lowered price is never called solid', () => {
+  const asks = five.map(s => vote(1000, s));
+  const sales = ['Uva', 'Vine', 'Xylo', 'Yew', 'Zelkova'].map(s => vote(600, s, true)); // five sellers, one day
+  const m = at([...asks, ...sales]);
+  assert.deepEqual([m.price, m.lowered, m.firm], [600, true, true]);
+  assert.equal(usualSource(m).level, 2);
+  assert.match(usualSource(m).why, /below what others ask/);
+});
+
+test('far below the asks but near a sale is neither a warning nor a deal', () => {
+  // Arrows for Bows, Nov 12: asked 0.4, two sellers sold at 0.3, others ask from 9,999
+  const arrows = [...[9999, 30e3, 30e3, 50e3, 444e3].map((u, i) => vote(u, five[i])), vote(0.3, 'Uva', true), vote(0.3, 'Vine', true)];
+  const v = judged(0.4, arrows);
+  assert.deepEqual([v.label, v.tag], ['few', 'quiet']);
+  assert.match(v.note, /^Sold for 0\.3, 2 sales\. Others ask 30K\.$/);
+  assert.equal(judged(0.1, arrows).label, 'check', 'far under the sales too is still a surprise');
+});
+
+test('a far-below price becomes a deal once a hover has read the name', () => {
+  const m = at(honest);
+  assert.equal(verdict({ unit: 10e3 }, m, null).label, 'check');
+  assert.match(verdict({ unit: 10e3 }, m, null).note, /hover it to check it's the same item/);
+  const deal = verdict({ unit: 10e3, confirmed: true }, m, null);
+  assert.deepEqual([deal.tag, deal.label, deal.rank], ['deal', '-90%', 0]);
+  const thin = at(honest.slice(0, 4));
+  assert.equal(verdict({ unit: 10e3, confirmed: true }, thin, null).label, 'few', 'not against a price that is not firm');
+  const wide = at([vote(100e3, 'Alder'), vote(100e3, 'Ash'), vote(300e3, 'Birch'), vote(400e3, 'Cedar'), vote(900e3, 'Dogwood')]);
+  const stays = verdict({ unit: 10e3, confirmed: true }, wide, null);
+  assert.equal(stays.label, 'check');
+  assert.match(stays.note, /prices vary/);
+  const beaten = at([...honest, vote(5e3, 'Elm')]);
+  assert.notEqual(verdict({ unit: 10e3, confirmed: true }, beaten, null).tag, 'deal', 'someone else asks less');
+});
+
+test('in your own shop a price that pays less than an NPC is a warning, not a deal', () => {
+  // Orihalcon Ore, Nov 12: sold at 90 everywhere while an NPC pays 100
+  assert.deepEqual([verdict({ unit: 90 }, null, 100).tag, verdict({ unit: 90 }, null, 100).label], ['deal', 'deal'], "someone else's shop");
+  const own = verdict({ unit: 90, ownFee: 0.03 }, null, 100);
+  assert.deepEqual([own.tag, own.label, own.rank], ['warn', 'NPC', 1]);
+  assert.equal(own.note, 'An NPC pays 100. This pays you 87 after the 3% fee.');
+  assert.equal(verdict({ unit: 101, ownFee: 0.03 }, null, 100).label, 'NPC', '101 pays 97 after the fee');
+  assert.equal(verdict({ unit: 104, ownFee: 0.03 }, null, 100).label, 'no data', '104 pays 100.88');
+  assert.equal(verdict({ unit: 90, ownFee: 0.03, sold: true }, null, 100).label, 'sold');
 });

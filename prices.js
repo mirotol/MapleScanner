@@ -39,6 +39,11 @@ function matchRank(name, query) {
   return n.split(' ').some(part => part.startsWith(words[0])) ? 1 : 2;
 }
 
+// A usual price under what an NPC pays is a loss to sell at, and it's still what was seen
+// (Orihalcon Ore sold at 90 on every price site, Nov 12, while an NPC pays 100: cheap listings
+// are bought to sell to the NPC, so the sales say 90). The price stays, with the NPC's beside it.
+const underNpc = (usual, npc) => usual?.price != null && npc != null && usual.price < npc;
+
 // An item's line: its usual price over every copy, and the cheapest ask of the last day.
 // Gear too: a name mixes clean and scrolled copies, which the card's Stats filter separates.
 function summarise(item) {
@@ -148,7 +153,8 @@ function renderList() {
   $('list').innerHTML = listHead()
     + shown.map(i => {
       const s = i.sure;
-      const usual = s ? `<b>${fmt(i.usual.price)}</b>` : '<span class="quiet">—</span>';
+      const npc = facts.npc(i.name);
+      const usual = s ? `<b>${fmt(i.usual.price)}</b>${underNpc(i.usual, npc) ? `<span class="under wide">NPC pays ${fmt(npc)}</span>` : ''}` : '<span class="quiet">—</span>';
       const sure = s ? `<td class="sure level${s.level}" title="${esc(s.why)}">${dotsTag(s)}${esc(s.short)}</td>` : '<td class="sure"></td>';
       const low = i.low ? `${fmt(i.low.u)}<span class="under go">${esc(whereText(i.low) || 'place not known')}</span>` : '<span class="quiet">none</span>';
       // On a phone (prices.html) the row is two lines with no other columns: when it was last
@@ -349,7 +355,7 @@ function cardHtml() {
   const src = usual?.price != null ? usualSource(usual, { gear: gear && !filterOn(filter) }) : null;
   const usualFig = src
     ? `<div class="fig main"><span>Usual price, ${set ? 'a set' : 'each'}</span><b>${fmt(usual.price)}</b><span>${
-      usual.from ? plural(usual.from, 'seller') : 'sellers not read'} · ${usual.days} days${gear && !filterOn(filter) ? ' · every condition' : ''}</span></div>`
+      usual.from ? plural(usual.from, 'seller') : 'sellers not read'} · ${usual.days} days${gear && !filterOn(filter) ? ' · every condition' : ''}</span>${underNpc(usual, npc) ? `<span class="npc-more">An NPC pays more: ${fmt(npc)}</span>` : ''}</div>`
     : '<div class="fig main"><span>Usual price</span><b class="dim">not enough yet</b></div>';
   // The card is where a curious player looks, so the reasoning is written out, not on a hover
   const sureFig = src?.level

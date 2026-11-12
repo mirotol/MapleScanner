@@ -182,6 +182,7 @@ dialog p.problem { color: var(--cloud); margin: 0 0 12px; }
 .lot-note, .lot-go, .lot-facts { grid-column: 2 / 4; font-size: 12.5px; line-height: 1.35; }
 .lot-note { color: var(--mist); }
 .lot-go { color: var(--sky); font-weight: 600; }
+.lot .name.unread { color: var(--mist); } /* a name that wasn't read is never shown */
 .lot.sold { color: var(--mist); }
 .lot.sold .cost { font-weight: 500; text-decoration: line-through; }
 .lot-group { padding: 8px 12px 2px; color: var(--mist); font-size: 12px; }

@@ -36,17 +36,23 @@ let seen = {};            // { item name: recent votes, see marketFor }
 let cloud = null;         // the price server's status: { online, waiting, blocked, connected }
 let pending = [];         // listings waiting to be handed to the local server
 let saving = false, dbOnline = true;
+// Prices are asked for again this often while scanning, with nothing to save too: your own
+// shop saves nothing, and the first answer after a start can come before the first sync, so
+// every row there stayed "no data" until another shop was scanned (Nov 12).
+const STATE_MS = 10e3;
+let stateAt = 0;
 
 async function loadState() {
   const state = await api('/api/state');
   matches.clear();
   seen = state.seen;
   cloud = state.status;
+  stateAt = Date.now();
 }
 
 // Runs after every scan, so listings are kept and retried if the server stops for a while.
 async function saveSightings() {
-  if (saving || (dbOnline && !pending.length)) return;
+  if (saving || (dbOnline && !pending.length && Date.now() - stateAt < STATE_MS)) return;
   saving = true;
   const rows = pending;
   pending = [];
@@ -127,13 +133,14 @@ function applyScan(res, at = Date.now()) {
   session.seller = mostRead(session.sellers, READS_TO_SAVE);
   session.title = mostRead(session.titles, READS_TO_SAVE);
 
-  // Rows are black on pale and read better than a tooltip's coloured title.
-  const hovered = tooltip && res.rows.find(r => r.hovered && !r.cut && !r.clipped && sameItem(r.name, tooltip.name));
+  // Rows are black on pale and read better than a tooltip's coloured title. But a row that's
+  // no real item never replaces a title that is one: the title is what names that row.
+  const hovered = tooltip && res.rows.find(r => r.hovered && !r.cut && !r.clipped && sameItem(r.name, tooltip.name) && (!tooltip.real || knownName(r.name)));
   if (hovered) tooltip.name = hovered.name;
 
   const rows = [];
   for (const r of res.rows) {
-    const full = tooltipName(r) ?? (r.cut ? completeName(r.name, r.iconTier, realNames) : null);
+    const full = tooltipName(r, tooltip, knownName) ?? (r.cut ? completeName(r.name, r.iconTier, realNames) : null);
     const read = full ? { ...r, name: full, cut: false, clipped: false } : r;
     const known = knownName(read.name, read.cut);
     // a cut-off scroll name hides its tier, so it stays cut even when the name matches
@@ -160,6 +167,7 @@ function applyScan(res, at = Date.now()) {
       if (cleaner) Object.assign(old, { name: row.name, raw: row.raw, real: row.real, cut: false, clipped: false, reads: 1 });
       if (old.reads >= READS_TO_SAVE) saveRow(old);
     }
+    old.seenAt = now; // on screen in this frame, see npcRows
     for (const r of rows) if (copyKey(r) === copyKey(row)) bySlot[r.slot] = old;
   }
   session.offset = placeRows(session.lines, bySlot, session.offset);
@@ -170,6 +178,9 @@ function applyScan(res, at = Date.now()) {
     tooltip.overList = !!res.overList;
     tooltip.line = lineForTooltip(tooltip, under, session.lines, res.overList);
     noteStats(tooltip.line);
+    // the title read as the same real item as the row, each on its own: the name is sure
+    const hit = tooltip.line?.listing;
+    if (tooltip.real && hit?.real && norm(hit.name) === norm(tooltip.name)) tooltip.line.named = true;
   }
 }
 
@@ -204,18 +215,6 @@ function saveRow(row) {
   remember(row, session);
 }
 
-// The tooltip gives the full name of the row under the cursor.
-function tooltipName(row) {
-  if (!row.hovered || !tooltip) return null;
-  // a whole real name needs no help, and a badly read title would only make a second row
-  if (!row.cut && !row.clipped && !row.partial && knownName(row.name)) return null;
-  const read = norm(row.partial ?? row.name), full = norm(tooltip.name);
-  if (full.length < 3) return null;
-  if (startsName(full, read) || startsName(read, full)) return tooltip.name;
-  // the cursor can spoil the end of a long name
-  return read.length >= 12 && startsName(read.slice(0, -3), full) ? tooltip.name : null;
-}
-
 // ---------- panel ----------
 // The stall card leads with the answer. Each row's verdict sits in one column on the left, so a
 // glance down it is enough, and a row gets a second line only when there's something to act on.
@@ -236,7 +235,9 @@ const sentence = text => (text ? `${text[0].toUpperCase()}${text.slice(1)}.` : '
 function judge(row, seller) {
   const needsHover = isGear(row.name) && !row.stats;
   const market = marketOf(needsHover ? seen[row.name] : comparable(row.name, row.stats), row.name, seller);
-  return verdict({ unit: unitOf(row), sold: row.sold, cut: row.cut, unread: !row.real, needsHover }, market, facts.npc(row.name));
+  // a far-below price is only a deal once a hover has shown it's this item: gear by its stats
+  const confirmed = isGear(row.name) ? !!row.stats : !!row.named;
+  return verdict({ unit: unitOf(row), sold: row.sold, cut: row.cut, unread: !row.real, needsHover, confirmed, ownFee: session?.own ? SALES_FEE : null }, market, facts.npc(row.name));
 }
 
 // Where this item was cheaper a moment ago. There's no search in the game, so this saves a walk.
@@ -284,20 +285,35 @@ function priceFacts(name, stats, seller, { npc = false } = {}) {
   return lines.join('');
 }
 
+// The name a row is shown under. Only a real item's name is ever shown, or for a cut-off row
+// the start its real names share: a misread ("Fet Food") would be an item that doesn't exist.
+const starts = new Map();
+function shownName(r) {
+  if (r.real) return r.name;
+  if (!r.cut && !r.clipped) return null;
+  if (!starts.has(r.name)) starts.set(r.name, sharedStart(r.name, realNames));
+  const start = starts.get(r.name);
+  return start ? `${start}…` : null;
+}
+function rowName(r) {
+  const name = shownName(r);
+  return name ? iconName(r.real ? facts.icon(r.name) : null, name) : `${iconTag(null)}<span class="name unread">Unread item</span>`;
+}
+
 function rowHtml({ r, j }, open) {
   const known = sentence(rowFacts(r).join(', '));
   const note = [known, j.note].filter(Boolean).join(' ');
-  const more = open
+  const more = open && r.real
     ? `<div class="lot-facts">${known ? `<div class="state">${esc(known)}</div>` : isGear(r.name) && !r.stats ? '<div class="state">Reading its stats</div>' : ''}${priceFacts(r.name, r.stats, session.seller)}</div>`
     : `${note ? `<span class="lot-note">${esc(note)}</span>` : ''}${cheaperLine(r, session.seller)}`;
   return `<div class="lot${open ? ' open' : ''}${r.sold ? ' sold' : ''}">
-    <span class="say ${j.tag}">${esc(minus(j.label))}</span><span class="what named">${iconName(facts.icon(r.name), r.name)}</span><span class="cost">${priceText(r)}</span>${more}</div>`;
+    <span class="say ${j.tag}">${esc(minus(j.label))}</span><span class="what named">${rowName(r)}</span><span class="cost">${priceText(r)}</span>${more}</div>`;
 }
 
 // One line per row in the shop, in the shop's order, so the card always matches what the player
 // sees. Identical copies are saved as one listing, but each line has its own hover stats.
 const judgedRows = () => session.lines.filter(l => l.listing).map(l => {
-  const r = { ...l.listing, stats: lineStats(l) };
+  const r = { ...l.listing, stats: lineStats(l), named: l.named };
   return { l, r, j: judge(r, session.seller) };
 });
 const shopName = () => session.seller ?? session.title ?? 'Player shop';
@@ -341,7 +357,15 @@ function playerRows() {
 }
 
 function npcRows() {
+  // The list keeps every item scrolled past, but an unread row only while it's on screen: a
+  // frame caught while the list scrolled can read a row that was never there, and it would stay.
+  const onShow = r => r.real || r.seenAt === session.seenAt;
   const sellRow = r => {
+    // a name that's no real item has no price to show: the same "check" as in a player's shop
+    if (!r.real) {
+      const j = verdict({ cut: r.cut, unread: true }, null, null);
+      return `<div class="lot"><span class="say ${j.tag}">${esc(j.label)}</span><span class="what named">${rowName(r)}</span><span class="cost"></span><span class="lot-note">${esc(j.note)}</span></div>`;
+    }
     const npc = facts.npc(r.name), market = isGear(r.name) ? null : marketOf(seen[r.name], r.name, null);
     const fmNet = market?.firm ? market.price * (1 - SALES_FEE) : null;
     const better = fmNet != null && npc != null && fmNet > npc * 1.2;
@@ -350,7 +374,7 @@ function npcRows() {
     return `<div class="lot">${say}<span class="what named">${iconName(facts.icon(r.name), r.name)}</span><span class="cost">${fmt(npc)}</span>${note ? `<span class="lot-note">${esc(note)}</span>` : ''}</div>`;
   };
   return `<div class="shop-head"><div class="who"><h3>NPC shop</h3></div><p>What the NPC pays, and where it sells for more</p></div>
-    <div class="lots">${session.rows.map(sellRow).join('') || '<p class="idle">Nothing read yet.</p>'}</div>`;
+    <div class="lots">${session.rows.filter(onShow).map(sellRow).join('') ||'<p class="idle">Nothing read yet.</p>'}</div>`;
 }
 
 // An item that isn't a line on the card: the player's own, or one in this shop whose row can't

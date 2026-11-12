@@ -1,7 +1,7 @@
 // Run with: node --test test/pricing.test.js
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { norm, fmt, chartRange, timeTicks, dateText, sameItem, matchName, completeName, startsName, knownTitle, placeRows, tooltipMoved, lineForTooltip, mergeCopies, channelFollower, itemFacts, passesStats, statBounds, iconTag, parseGearStats, gearState, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText } = require('../pricing.js');
+const { norm, fmt, chartRange, timeTicks, dateText, sameItem, matchName, completeName, sharedStart, startsName, tooltipName, knownTitle, placeRows, tooltipMoved, lineForTooltip, mergeCopies, channelFollower, itemFacts, passesStats, statBounds, iconTag, parseGearStats, gearState, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText } = require('../pricing.js');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -69,6 +69,29 @@ test('a slash read as a letter is still the name', () => {
   assert.equal(completeName('Silver f Black Stea', null, realNames), 'Silver / Black Stealer Pants');
   assert.equal(sameItem('Silver f', 'Silver / Black Stealer Pants', true), false, 'cut off there, f could start a word');
   assert.equal(sameItem('Blue f Moon Shoes', 'Blue Moon Shoes'), false, 'only where the name has a slash');
+});
+
+test('hovering a row whose name was not read gives it the tooltip\'s name', () => {
+  const known = read => matchName(read, realNames);
+  const tip = { name: 'Silver / Black Stealer Pants', real: true, pushed: false };
+  const row = { name: 'Si1ver Rlack Stealer Pants', hovered: true };
+  assert.equal(known(row.name), null);
+  assert.equal(tooltipName(row, tip, known), tip.name);
+  assert.equal(tooltipName({ ...row, hovered: false }, tip, known), null, 'only the hovered row');
+  assert.equal(tooltipName(row, { ...tip, pushed: true }, known), null, 'a moved tooltip may be on another row');
+  assert.equal(tooltipName(row, { ...tip, real: false }, known), null, 'a title that is no real item names nothing');
+  assert.equal(tooltipName({ name: 'Zzyzx Qwerty', hovered: true }, tip, known), null, 'nothing like the title');
+  assert.equal(tooltipName({ name: 'O1d Nap Piece (1/4)', hovered: true }, { name: 'Old Map Piece (2/4)', real: true }, known), null, 'numbers must be the same');
+  assert.equal(tooltipName({ name: 'Gloves Attack Scro1l: Lesser', hovered: true }, { name: 'Gloves Attack Scroll: Greater', real: true }, known), null, 'another tier is not close enough');
+  assert.equal(tooltipName({ name: 'Blue Moon Shoes', hovered: true }, { name: 'Blue Moon Shoes', real: true }, known), null, 'a real name needs no help');
+  assert.equal(tooltipName({ name: 'Overall Armor DEF Scr', cut: true, hovered: true }, { name: 'Overall Armor DEF Scroll: Greater', real: true }, known), 'Overall Armor DEF Scroll: Greater', 'a cut-off name, as before');
+});
+
+test('a cut-off read is shown as the start its real names share, never as it was read', () => {
+  assert.equal(sharedStart('Overall Armor DEF Scr..', realNames), 'Overall Armor DEF Scroll');
+  assert.equal(sharedStart('Crosshow Attack Scr...', realNames), 'Crossbow Attack Scroll', 'the misread letter is not shown');
+  assert.equal(sharedStart('Zzyzx Qwerty Foo..', realNames), null, 'the start of no real name');
+  assert.equal(sharedStart('Fet Foo..', realNames), null);
 });
 
 test('a cut-off read gets no extra leeway', () => {

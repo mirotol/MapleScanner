@@ -77,6 +77,28 @@ function matchName(read, names, cut = false) {
 const squeezed = s => norm(s).replace(/ /g, '');
 const startsName = (start, name) => squeezed(name).startsWith(squeezed(start));
 
+// The tooltip gives the full name of the row under the cursor. tip is { name, real: its
+// title is a real item, pushed: the game may have moved it off its row }, known gives a
+// read's real name or null.
+function tooltipName(row, tip, known) {
+  if (!row.hovered || !tip) return null;
+  // a whole real name needs no help, and a badly read title would only make a second row
+  const whole = !row.cut && !row.clipped && !row.partial;
+  if (whole && known(row.name)) return null;
+  const read = norm(row.partial ?? row.name), full = norm(tip.name);
+  if (full.length < 3) return null;
+  if (startsName(full, read) || startsName(read, full)) return tip.name;
+  // A whole name misread in the middle ("Si1ver Rlack Stealer Pants") is the tooltip's real
+  // item when the tooltip is surely on this row and they're close: 0.85, because a Lesser
+  // scroll's row read with one wrong letter is 0.81 like the Greater's title. A name with
+  // numbers needs them read the same, as "(1/4)" and "(2/4)" are a letter apart.
+  const digits = s => s.replace(/\D/g, '');
+  const numbers = !digits(full) || digits(read) === digits(full);
+  if (whole && tip.real && !tip.pushed && numbers && sim(read, full) >= 0.85) return tip.name;
+  // the cursor can spoil the end of a long name
+  return read.length >= 12 && startsName(read.slice(0, -3), full) ? tip.name : null;
+}
+
 // The whole name of a cut-off read, when only one name starts with it, or only one
 // has the icon's tier. Otherwise it stays unknown. A long word can be a letter off, as
 // in a whole name ("Crosshow Attack Scr..." for Crossbow).
@@ -85,6 +107,22 @@ function completeName(read, iconTier, names) {
   const tiered = iconTier ? fits.filter(n => n.endsWith(`: ${iconTier}`)) : [];
   if (tiered.length === 1) return tiered[0];
   return fits.length === 1 ? fits[0] : null;
+}
+
+// What a cut-off read can be shown as: the start that every real name it could be shares
+// ("Overall Armor DEF Scroll" for the three tiers), or null when no name starts like it. It's
+// built from real names, never from the read, so a misread letter is never shown.
+function sharedStart(read, names) {
+  const fits = names.filter(n => startsName(read, n) || sameItem(read, n, true));
+  if (!fits.length) return null;
+  let end = fits[0].length;
+  for (const n of fits) {
+    let i = 0;
+    while (i < end && n[i] === fits[0][i]) i++;
+    end = i;
+  }
+  const start = fits[0].slice(0, end).replace(/[^A-Za-z0-9%)]+$/, '');
+  return start.length >= 3 ? start : null;
 }
 
 // The full name of a cut-off scroll. What's left of the tier in the text comes
@@ -261,7 +299,8 @@ function placeRows(lines, slots, last = 0) {
   }
   return at;
 }
-const newLine = () => ({ listing: null, next: null, streak: 0, stats: null, statReads: null });
+// named: a hover's tooltip read this line's item, so its name is sure
+const newLine = () => ({ listing: null, next: null, streak: 0, stats: null, statReads: null, named: false });
 
 // The line a tooltip belongs to. A line that doesn't match gives way to the only one in the
 // shop that does, because the game moves a tooltip up to fit it on screen, which points at
@@ -527,4 +566,4 @@ async function api(path, body) {
   return data;
 }
 
-if (typeof module !== 'undefined') module.exports = { SEEN_DAYS, marketState, norm, sim, fmt, chartRange, timeTicks, dateText, whole, sameItem, matchName, statsFit, completeName, startsName, knownTitle, placeRows, tooltipMoved, lineForTooltip, copyKey, mergeCopies, channelFollower, itemFacts, itemKind, passesStats, statBounds, iconTag, iconName, parseGearStats, gearState, STAT_NAMES, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText };
+if (typeof module !== 'undefined') module.exports = { SEEN_DAYS, marketState, norm, sim, fmt, chartRange, timeTicks, dateText, whole, sameItem, matchName, statsFit, completeName, sharedStart, startsName, tooltipName, knownTitle, placeRows, tooltipMoved, lineForTooltip, copyKey, mergeCopies, channelFollower, itemFacts, itemKind, passesStats, statBounds, iconTag, iconName, parseGearStats, gearState, STAT_NAMES, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText };
