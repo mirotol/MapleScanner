@@ -42,6 +42,7 @@
   .about .version { color: var(--cloud); font-size: 15px; margin: 0 0 6px; }
   .update-row { cursor: default; }
   .settings > * { max-width: 640px; }
+  .settings > .card-settings { max-width: 1010px; } /* its settings, and the example card beside them */
   .settings h2 { margin-bottom: 14px; }
   .setting.keyed { cursor: default; }
   .setting.keyed[hidden] { display: none; }
@@ -156,17 +157,33 @@
       </span>
       <input type="checkbox" id="settingShareScans" role="switch">
     </label>
-    <div class="setting keyed" id="hotkeySetting" hidden>
-      <span class="setting-text">
-        <b>Show or hide the stall card</b>
-        <span>Press this key while playing to hide the card or bring it back. The game doesn't get this key while MapleScanner is open, so pick one your own MapleStory key setup doesn't use. A key on its own is safest, because holding Ctrl, Alt or Shift also does something in the game.</span>
-      </span>
-      <span class="keys">
-        <button id="hotkeyKey" aria-describedby="hotkeyNote"></button>
-        <button id="hotkeyOff">Turn off</button>
-      </span>
+    <h3 class="settings-group">Stall card</h3>
+    <div class="card-settings">
+      <div class="card-switches">
+        <label class="setting">
+          <span class="setting-text">
+            <b>Compare potions and arrows with other stalls</b>
+            <span>For potions and arrows the stall card says whether a row is the cheapest right now: <i>best</i>, or how much more each costs than a stall seen in the last hour that you can walk to, like <i>+9</i>, with where it is. Off, they are judged against the usual price like everything else.</span>
+          </span>
+          <input type="checkbox" id="settingCompareNow" role="switch">
+        </label>
+        <div class="setting keyed" id="hotkeySetting" hidden>
+          <span class="setting-text">
+            <b>Show or hide the stall card</b>
+            <span>Press this key while playing to hide the card or bring it back. The game doesn't get this key while MapleScanner is open, so pick one your own MapleStory key setup doesn't use. A key on its own is safest, because holding Ctrl, Alt or Shift also does something in the game.</span>
+          </span>
+          <span class="keys">
+            <button id="hotkeyKey" aria-describedby="hotkeyNote"></button>
+            <button id="hotkeyOff">Turn off</button>
+          </span>
+        </div>
+        <p id="hotkeyNote" class="note" role="status"></p>
+      </div>
+      <figure class="card-example">
+        <figcaption>An example shop, as your settings show it</figcaption>
+        <div class="stall" id="exampleCard" inert aria-label="Example stall card"></div>
+      </figure>
     </div>
-    <p id="hotkeyNote" class="note" role="status"></p>
     <p id="settingsNote" class="note" role="status"></p>
   </section>
 </div>

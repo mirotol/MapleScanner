@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stall card for bulk items</title>
+<!-- Design proposal, Nov 12, not built. Bulk items (potions, arrows, ores, scrolls) are bought by
+     the hundred and bought now, so the card's answer for them is "the cheapest right now", not
+     "a normal price". "Now" is the card as theme.css and app.js draw it today, and "Proposed" uses
+     the same markup with the few styles below. The game behind is the user's own capture
+     (design/shots/potions.webp, never committed), with both cards over the place its card was.
+     Every price but this shop's is made up. Run node design/serve.js and open
+     http://localhost:8124/design/stall-bulk.html -->
+<link rel="stylesheet" href="../theme.css">
+<style>
+  html, body { background: #2a2a2e; }
+  body { color: #f2f2f2; padding: 20px 20px 60px; }
+  .intro { max-width: 900px; }
+  .intro h1 { font-size: 24px; }
+  .intro p { color: #cfcfd4; font-size: 14px; margin-top: 6px; }
+  .pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 14px 0 6px; font-size: 13px; color: #cfcfd4; }
+  .pick button { color: #f2f2f2; box-shadow: inset 0 0 0 1px #6a6a70; padding: 5px 10px; }
+  .pick button:hover { background: #4a4a50; }
+  .pick button.on { background: #f2f2f2; color: #2a2a2e; }
+  .pick .gap { width: 16px; }
+  .about { color: #dcdce2; font-size: 13.5px; min-height: 40px; max-width: 900px; margin-bottom: 12px; }
+
+  /* The capture at its own size, so the cards are judged against the real game */
+  .fit { overflow: hidden; }
+  .stage { position: relative; width: 1780px; height: 1004px; background: #000 url(shots/potions.webp) 0 0 / 1780px 1004px no-repeat; border-radius: 8px; overflow: hidden; }
+  .slot { position: absolute; top: 440px; width: 391px; }
+  /* The capture has the user's own card in it: a plain patch hides what a shorter card leaves showing */
+  .cover { position: absolute; left: 1336px; top: 462px; width: 400px; height: 458px; background: #4c4947; border-radius: 10px; }
+  .slot.now { left: 930px; }
+  .slot.new { left: 1341px; }
+  .slot .which { font: 600 13px/22px var(--text); text-transform: uppercase; letter-spacing: .06em; color: #2a2a2e; background: #b9b9c0; padding: 0 8px; border-radius: 4px 4px 0 0; display: inline-block; }
+  .slot.new .which { background: #ffd38a; }
+  /* The user's card is at the app's 115% text size in the capture */
+  .slot .stall { zoom: 1.15; width: 340px; border-radius: 0 10px 10px 10px; }
+  .stall .bar button { display: grid; }
+
+  /* An item's icon, cut from the capture's own card */
+  .ico { flex: none; width: 22px; height: 22px; margin: calc((1lh - 22px) / 2) 6px calc((1lh - 22px) / 2) 0;
+    background: url(shots/potions.webp) calc(var(--x) * -0.846px) calc(var(--y) * -0.846px) / 1506px auto no-repeat; }
+  .water { --x: 1427; --y: 571; } .sap { --x: 1427; --y: 611; } .elixir { --x: 1427; --y: 651; } .orange { --x: 1428; --y: 692; }
+
+  /* ---------- Proposed ---------- */
+  /* The fill stays for a deal against the usual price. Cheapest right now is the colour alone,
+     or a shop of potions would be a column of green boxes. */
+  .lot .say.best { color: var(--exp); }
+  .lot .say.more { color: var(--hp); }
+  .fact small { font-weight: 500; color: var(--mist); }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>Stall card for bulk items</h1>
+  <p>For potions, arrows, ores and scrolls the left column answers "is this the cheapest right now?" An ask counts when it was seen in the last hour and can be walked to: any channel and room in the Free Market, or the same map elsewhere. Gear and throwing stars keep today's words.</p>
+</div>
+<div class="pick" id="pick"></div>
+<p class="about" id="about"></p>
+<div class="fit" id="fit">
+  <div class="stage" id="stage">
+    <div class="cover"></div>
+    <div class="slot now"><span class="which">Now</span><div class="stall" id="now"></div></div>
+    <div class="slot new"><span class="which">Proposed</span><div class="stall" id="new"></div></div>
+  </div>
+</div>
+
+<script>
+const bar = '<div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.22</span><button aria-label="Shrink">&#8211;</button><button aria-label="Close">&#215;</button></div>';
+const head = '<div class="shop-head"><div class="who"><h3>Jolty</h3></div><p>“Pots” · Kerning City Construction Site · 5 for sale</p></div>';
+const fact = (label, value, where = '') => `<div class="fact"><span>${label}</span><span>${value}</span></div>${where ? `<div class="fact-where">${where}</div>` : ''}`;
+
+// One row: [verdict class, verdict word, icon, name, price, second line or facts, open]
+const lot = ({ tag = '', say, ico, name, cost, note = '', go = '', facts = '' }) => `<div class="lot${facts ? ' open' : ''}">
+  <span class="say ${tag}">${say}</span><span class="what named"><span class="ico ${ico}"></span><span class="name">${name}</span></span><span class="cost">${cost}</span>
+  ${facts ? `<div class="lot-facts">${facts}</div>` : `${note ? `<span class="lot-note">${note}</span>` : ''}${go ? `<span class="lot-go">${go}</span>` : ''}`}</div>`;
+const card = rows => `${bar}<div class="list">${head}<div class="lots">${rows.map(lot).join('')}</div></div>`;
+
+const HERE = 'Kerning City Construction Site';
+const items = [
+  { ico: 'water', name: 'Pure Water', cost: '899' },
+  { ico: 'sap', name: 'Sap of Ancient Tree', cost: '333' },
+  { ico: 'elixir', name: 'Elixir', cost: '899' },
+  { ico: 'orange', name: 'Orange Potion', cost: '139' },
+  { ico: 'orange', name: 'Orange Potion', cost: '139' },
+];
+const rows = extra => items.map((item, i) => ({ ...item, ...extra[i] }));
+
+// Today's opened row, and the proposed one: the cheapest right now first, then the usual price
+const nowFacts = fact('Sold, 12 sales', '135') + fact('Cheapest other ask', '130', HERE) + fact('Seen', '130 to 145');
+const newFacts = fact('Cheapest right now', '130', 'Herbie, CH.22, 3 min ago') + fact('Usual price <small>sold, 12 sales</small>', '135') + fact('Seen this hour', '130 to 145');
+const cheaperNow = `Cheaper: 130 at ${HERE}, 3 min ago`;
+// On another map only the same map can be walked to, so its name would say nothing: the seller
+// and the channel find the stall. In the Free Market the room is named too (CH.3 FM 7).
+const cheaperNew = '130 at Herbie, CH.22, 3 min ago';
+
+const scenes = {
+  'Hovering a potion': {
+    about: 'The capture as it was. Pure Water is the cheapest of three stalls seen this hour, nobody else sold Sap this hour so it keeps today\'s word against the usual price, and Elixir and Orange Potion are cheaper a few steps away.',
+    now: rows([{ say: 'fair' }, { say: 'fair' }, { say: 'fair' }, { say: 'fair', facts: nowFacts }, { say: 'fair', go: cheaperNow }]),
+    new: rows([{ tag: 'best', say: 'best' }, { say: 'fair' }, { tag: 'more', say: '+49', go: '850 at Pottery, CH.4, 12 min ago' },
+      { tag: 'more', say: '+9', facts: newFacts }, { tag: 'more', say: '+9', go: cheaperNew }]),
+  },
+  'Nothing hovered': {
+    about: 'The same shop at a glance: one green word to buy here, two orange numbers with where to walk instead.',
+    now: rows([{ say: 'fair' }, { say: 'fair' }, { say: 'fair', go: `Cheaper: 850 at ${HERE}, 12 min ago` }, { say: 'fair', go: cheaperNow }, { say: 'fair', go: cheaperNow }]),
+    new: rows([{ tag: 'best', say: 'best' }, { say: 'fair' }, { tag: 'more', say: '+49', go: '850 at Pottery, CH.4, 12 min ago' },
+      { tag: 'more', say: '+9', go: cheaperNew }, { tag: 'more', say: '+9', go: cheaperNew }]),
+  },
+  'Mixed with today\'s words': {
+    about: 'The hard case for one column: mesos (+49) beside percentages (−25%, +30%). Pure Water and Sap were seen nowhere else this hour, so they are judged against the usual price as today. Both potions are the cheapest right now.',
+    now: rows([{ tag: 'deal', say: '−25%', note: 'Usually 1,200.' }, { tag: 'over', say: '+30%' }, { say: 'fair', go: `Cheaper: 850 at ${HERE}, 12 min ago` }, { say: 'fair' }, { say: 'fair' }]),
+    new: rows([{ tag: 'deal', say: '−25%', note: 'Usually 1,200. Nobody else seen this hour.' }, { tag: 'over', say: '+30%', note: 'Nobody else seen this hour.' },
+      { tag: 'more', say: '+49', go: '850 at Pottery, CH.4, 12 min ago' }, { tag: 'best', say: 'best' }, { tag: 'best', say: 'best' }]),
+  },
+  'Thin data': {
+    about: 'Only this shop was seen this hour, and some items have few sellers at all. Nothing is called best: the column falls back to today\'s words.',
+    now: rows([{ say: 'fair' }, { tag: 'quiet', say: 'few', note: 'Only 2 sellers so far, 300–400.' }, { say: 'fair' }, { say: 'fair' }, { say: 'fair' }]),
+    new: rows([{ say: 'fair' }, { tag: 'quiet', say: 'few', note: 'Only 2 sellers so far, 300–400.' }, { say: 'fair' }, { say: 'fair' }, { say: 'fair' }]),
+  },
+};
+
+const pick = document.getElementById('pick');
+function show(name) {
+  const scene = scenes[name];
+  document.getElementById('now').innerHTML = card(scene.now);
+  document.getElementById('new').innerHTML = card(scene.new);
+  document.getElementById('about').textContent = scene.about;
+  for (const b of pick.querySelectorAll('[data-scene]')) b.classList.toggle('on', b.dataset.scene === name);
+}
+pick.innerHTML = Object.keys(scenes).map(n => `<button data-scene="${n}">${n}</button>`).join('')
+  + '<span class="gap"></span>Size <button data-size="fit" class="on">Fit</button><button data-size="native">Native</button>';
+pick.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b?.dataset.scene) show(b.dataset.scene);
+  if (b?.dataset.size) { size = b.dataset.size; for (const s of pick.querySelectorAll('[data-size]')) s.classList.toggle('on', s === b); fit(); }
+});
+
+// Fit shrinks the whole capture to the window. Native is what the player sees, and scrolls.
+let size = 'fit';
+function fit() {
+  const box = document.getElementById('fit'), stage = document.getElementById('stage');
+  const z = size === 'fit' ? Math.min(1, box.clientWidth / 1780) : 1;
+  stage.style.zoom = z;
+  box.style.overflowX = size === 'fit' ? 'hidden' : 'auto';
+}
+addEventListener('resize', fit);
+show(Object.keys(scenes)[0]);
+fit();
+</script>
+</body>
+</html>

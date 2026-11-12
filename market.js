@@ -1,6 +1,6 @@
 // Turns raw listings into a market summary and a verdict on one listing. Pure, so it can be
 // tested in Node and shared by the pages. See "Average or median" in CLAUDE.md for the rules.
-const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear, historyVotes } = (({ norm, sim, fmt }) => {
+const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, sameStats, closestGear, historyVotes } = (({ norm, sim, fmt }) => {
   const DAY_MS = 864e5;
   const WINDOWS = [3, 7, 14]; // days, shortest first, because prices move fast
   // Named sellers a usual price needs to be firm (raised from 3 on Nov 10, to be harder to fake)
@@ -228,11 +228,11 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
   // listing: { unit: price per item, sold, cut, unread: the name read as no real item,
   // needsHover: gear with no stats read yet, confirmed: a hover read this row's name (or a
   // gear's stats), so it's surely this item, ownFee: the sales fee as a share, when it's the
-  // player's own shop }
+  // player's own shop, rightNow: what cheapestNow gave, for an item bought in bulk }
   // Returns what to say about it. A lower rank sorts first. text and why are the longer
   // wording, label is one short word for the stall card's answer column, and note is that
   // row's second line, only when there's something to act on.
-  function verdict({ unit, sold, cut, unread, needsHover, confirmed, ownFee }, market, npc) {
+  function verdict({ unit, sold, cut, unread, needsHover, confirmed, ownFee, rightNow = null }, market, npc) {
     const rail = sold || cut || unread || needsHover ? null : priceRail(unit, market);
     const say = (rank, tag, text, why, label, note = '', pct = null) => ({ rank, tag, text, why, label, note, pct, rail });
     const npcWhy = npc ? `NPC pays ${fmt(npc)}` : '';
@@ -247,8 +247,13 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
     }
     if (npc && unit < npc) return say(0, 'deal', 'below NPC', npcWhy, 'deal', `NPC pays ${fmt(npc)}.`);
     if (needsHover) return say(2, 'quiet', 'hover for stats', market ? `seen ${rangeText(market)}` : npcWhy, 'hover', 'Its stats decide the price.');
-    if (!market) return say(2, 'quiet', 'no price data', npcWhy, 'no data');
-    if (!market.firm) return say(2, 'quiet', `${sellerText(market.sellers)}, ${rangeText(market)}`, npcWhy, 'few', `Only ${sellerText(market.sellers)} so far, ${rangeText(market)}.`);
+    // Against other stalls right now (cheapestNow), for an item bought in bulk. It comes after
+    // a deal and a far-below warning, which say more, and before the words about the usual price.
+    const nowSay = (why, pct = null) => (!rightNow ? null
+      : rightNow.best ? say(2, 'best', 'cheapest right now', why, 'best', '', pct)
+        : say(2, 'more', `${fmt(rightNow.more)} more each`, why, `+${fmt(rightNow.more)}`, '', pct));
+    if (!market) return nowSay(npcWhy) ?? say(2, 'quiet', 'no price data', npcWhy, 'no data');
+    if (!market.firm) return nowSay(npcWhy) ??  say(2, 'quiet', `${sellerText(market.sellers)}, ${rangeText(market)}`, npcWhy, 'few', `Only ${sellerText(market.sellers)} so far, ${rangeText(market)}.`);
     const pct = Math.round((unit / market.price - 1) * 100), why = reasonText(market);
     if (pct <= CHECK_BELOW) {
       // Far below what others ask but near what it sold for is no surprise, and no deal either:
@@ -264,6 +269,7 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
     // A pumped usual price can't make a deal while someone else is cheaper.
     const cheapest = market.cheapest == null || unit <= market.cheapest;
     if (pct <= dealBelow(market.price) && cheapest) return say(0, 'deal', `deal ${pct}%`, why, `${pct}%`, dealNote(unit, market), pct);
+    if (rightNow) return nowSay(why, pct);
     if (pct >= OVER_ABOVE) return say(2, 'over', `+${pct}%`, why, overLabel(unit / market.price, pct), '', pct);
     return say(2, 'quiet', 'fair', why, 'fair', '', pct);
   }
@@ -273,6 +279,29 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
     const recent = (votes || []).filter(v => now - v.t <= within && !excepted(v, except));
     const asks = bySeller(recent).map(standingAsk).filter(v => v && v.u < unit);
     return asks.length ? asks.reduce((a, b) => (b.u < a.u ? b : a)) : null;
+  }
+
+  // Things bought by the hundred (potions, arrows, ores, scrolls) are bought now, and a few
+  // mesos each adds up: 9 on a 139 potion is 900 on a hundred (the user, Nov 12). So for them
+  // the question isn't whether a price is usual but whether it's the cheapest right now: among
+  // asks of the last hour that can be walked to. From the Free Market that's any channel and
+  // room, and anywhere else only the same map, on any channel (the user's choices).
+  const NOW_MS = 36e5;
+  const inFm = p => p.room != null || p.map === 'Free Market';
+  // here: { map, room } where the player stands. Unknown, nothing is known to be in reach.
+  const sameArea = (v, here) => !!here?.map && (inFm(here) ? inFm(v) : v.map === here.map);
+  // A Free Market stall can't be found without its channel and room. On a map it can.
+  const reachable = (v, here) => sameArea(v, here) && (!inFm(here) || (v.channel != null && v.room != null));
+
+  // What other sellers ask right now, or null when nobody else was seen: then there's nothing
+  // to call the cheapest. low is the cheapest of them, more is how much dearer unit is than
+  // it, and best says none of them is cheaper.
+  function cheapestNow(votes, unit, { except = null, now = Date.now(), here = null } = {}) {
+    const recent = (votes || []).filter(v => now - v.t <= NOW_MS && !excepted(v, except) && reachable(v, here));
+    const asks = bySeller(recent).map(standingAsk).filter(Boolean);
+    if (!asks.length) return null;
+    const low = asks.reduce((a, b) => (b.u < a.u ? b : a));
+    return { low, high: Math.max(...asks.map(v => v.u)), more: Math.max(0, unit - low.u), best: low.u >= unit };
   }
 
   // The trend on the Prices card: for each day something was seen, what sold and what was
@@ -325,7 +354,7 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
     return votes;
   }
 
-  return { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear, historyVotes };
+  return { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, sameStats, closestGear, historyVotes };
 })(typeof module !== 'undefined' ? require('./pricing.js') : { norm, sim, fmt });
 
-if (typeof module !== 'undefined') module.exports = { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear, historyVotes };
+if (typeof module !== 'undefined') module.exports = { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, sameStats, closestGear, historyVotes };

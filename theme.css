@@ -77,6 +77,12 @@ input::placeholder { color: var(--mist); }
 .setting { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--dusk); cursor: pointer; }
 .setting:last-of-type { border-bottom: 1px solid var(--dusk); }
 .setting-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+/* Settings that change the stall card, with an example card beside them that follows them */
+.settings-group { margin: 30px 0 8px; font: 600 12px/1.3 var(--text); text-transform: uppercase; letter-spacing: .06em; color: var(--mist); }
+.card-settings { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 28px; }
+.card-switches { flex: 1 1 400px; min-width: 0; max-width: 640px; }
+.card-example { flex: 0 0 340px; max-width: 100%; margin: 12px 0 0; }
+.card-example figcaption { color: var(--mist); font-size: 12px; margin-bottom: 6px; }
 .setting-text b { font: 600 16px/1.3 var(--display); }
 .setting-text span { color: var(--mist); font-size: 13px; }
 input[role="switch"] { appearance: none; flex: none; position: relative; width: 42px; height: 24px; padding: 0; margin: 0; border-radius: 12px; background: var(--ridge); cursor: pointer; transition: background .15s; }
@@ -169,6 +175,10 @@ dialog p.problem { color: var(--cloud); margin: 0 0 12px; }
 .lot .say.warn { background: var(--ember); color: var(--on-bright); }
 .lot .say.over { color: var(--hp); }
 .lot .say.quiet { font-weight: 500; }
+/* Cheapest right now, or how much dearer than it. The colour alone: the fill stays for a deal,
+   or a shop of potions would be a column of green boxes. */
+.lot .say.best { color: var(--exp); }
+.lot .say.more { color: var(--hp); }
 /* item icons: a fixed slot, pulled into the line so a row is no taller */
 .icon { display: inline-block; width: 22px; height: 22px; margin: -4px 6px -4px 0; vertical-align: middle; object-fit: contain; }
 /* An icon beside its name (iconName in pricing.js): a long name wraps beside the icon, not under
@@ -204,4 +214,5 @@ dialog p.problem { color: var(--cloud); margin: 0 0 12px; }
 .fact { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; font-size: 13px; }
 .fact span:first-child { color: var(--mist); min-width: 0; }
 .fact span:last-child { font-weight: 700; white-space: nowrap; }
-.fact em { font-style: normal; color: var(--sky); font-weight: 600; }
+.fact small { font-weight: 500; }
+.fact-where { margin-top: -2px; padding-bottom: 2px; text-align: right; font-size: 12px; font-weight: 600; color: var(--sky); }

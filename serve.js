@@ -110,7 +110,7 @@ function sendIcon(icons, id, res) {
 // autoUpdate: download new versions in the background (desktop/main.js). Only the app reads it.
 // shareScans: send the listings read off the screen to the shared price database. Off, prices
 // still come in but nothing goes out. The installer asks first (build/installer.nsh).
-const SETTINGS = { channelWatch: true, cardHotkey: 'Scrolllock', textSize: 1, theme: 'auto', autoUpdate: true, shareScans: true };
+const SETTINGS = { channelWatch: true, cardHotkey: 'Scrolllock', textSize: 1, theme: 'auto', autoUpdate: true, shareScans: true, compareNow: false };
 const TEXT_SIZES = [0.9, 1, 1.15, 1.3, 1.5];
 const THEMES = ['auto', 'light', 'dark'];
 const CHOICES = { textSize: TEXT_SIZES, theme: THEMES };

@@ -239,6 +239,48 @@ test('finds the cheapest recent ask from someone else', () => {
   assert.equal(cheaperElsewhere(votes, 100e3, { now: NOW, except: 'Alder' }).u, 90e3);
 });
 
+test('right now: only asks of the last hour that can be walked to', () => {
+  const { cheapestNow } = require('../market.js');
+  const kerning = { map: 'Kerning City', room: null }, fm = { map: 'Free Market', room: 3 };
+  const ask = (u, s, place, ago = 5 * 6e4) => ({ ...vote(u, s, false, NOW - ago), ...place });
+  const votes = [
+    ask(130, 'Herbie', { map: 'Kerning City', channel: 22 }),
+    ask(145, 'Pottery', { map: 'Kerning City' }), // no channel: still on this map
+    ask(120, 'Late', { map: 'Kerning City', channel: 2 }, 61 * 6e4),
+    ask(110, 'Faraway', { map: 'Henesys', channel: 1 }),
+    ask(125, 'Stall', { map: 'Free Market', room: 7, channel: 3 }),
+    ask(100, 'Lost', { map: 'Free Market', room: 7 }), // a Free Market stall with no channel can't be found
+  ];
+  const here = cheapestNow(votes, 139, { now: NOW, here: kerning });
+  assert.deepEqual([here.low.s, here.more, here.best, here.high], ['Herbie', 9, false, 145]);
+  assert.equal(cheapestNow(votes, 130, { now: NOW, here: kerning }).best, true, 'the same price is still the cheapest');
+  assert.equal(cheapestNow(votes, 139, { now: NOW, here: kerning, except: 'Herbie' }).low.s, 'Pottery');
+  // from the Free Market: any channel and room, and nothing outside it
+  const market = cheapestNow(votes, 139, { now: NOW, here: fm });
+  assert.deepEqual([market.low.s, market.more], ['Stall', 14]);
+  // nobody else in reach, or the card doesn't know where the player is: nothing to call cheapest
+  assert.equal(cheapestNow(votes, 139, { now: NOW, here: { map: 'Perion' } }), null);
+  assert.equal(cheapestNow(votes, 139, { now: NOW, here: null }), null);
+  // an ask later seen sold is gone
+  assert.equal(cheapestNow([ask(130, 'Herbie', { map: 'Kerning City' }), { ...vote(130, 'Herbie', true), map: 'Kerning City' }], 139, { now: NOW, here: kerning }), null);
+});
+
+test('something bought in bulk is judged against other stalls right now, after a deal or a warning', () => {
+  const m = at(honest), low = { u: 95e3 };
+  const dearer = { low, high: 120e3, more: 5e3, best: false }, best = { low: { u: 105e3 }, high: 120e3, more: 0, best: true };
+  assert.deepEqual([verdict({ unit: 100e3, rightNow: dearer }, m, null).label, verdict({ unit: 100e3, rightNow: dearer }, m, null).tag], ['+5,000', 'more']);
+  assert.deepEqual([verdict({ unit: 100e3, rightNow: best }, m, null).label, verdict({ unit: 100e3, rightNow: best }, m, null).tag], ['best', 'best']);
+  assert.equal(verdict({ unit: 100e3 }, m, null).label, 'fair', 'nobody else seen: the usual price as before');
+  assert.equal(verdict({ unit: 150e3, rightNow: best }, m, null).label, 'best', 'dear against the usual price, but the cheapest there is now');
+  // a deal, a far-below warning and a sold row say more
+  assert.equal(verdict({ unit: 70e3, rightNow: best }, m, null).tag, 'deal');
+  assert.equal(verdict({ unit: 10e3, rightNow: best }, m, null).label, 'check');
+  assert.equal(verdict({ unit: 100e3, sold: true, rightNow: dearer }, m, null).label, 'sold');
+  // too few sellers for a usual price is no reason to hide a cheaper stall
+  assert.equal(verdict({ unit: 100, rightNow: { low: { u: 91 }, high: 91, more: 9, best: false } }, at([vote(91, 'Alder')]), null).label, '+9');
+  assert.equal(verdict({ unit: 100, rightNow: null }, at([vote(91, 'Alder')]), null).label, 'few');
+});
+
 test('an old ask is not worth walking to', () => {
   assert.equal(cheaperElsewhere([vote(85e3, 'Alder', false, NOW - 7 * 36e5)], 100e3, { now: NOW }), null);
 });

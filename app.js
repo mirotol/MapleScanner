@@ -229,25 +229,58 @@ const DEALS_MS = 6 * 36e5; // shops close, the same limit as "Cheaper"
 const trouble = (short, long = short, level = 'warn') => ({ short, long, level });
 
 // A throwing star's "4 for 600,000" is one set with 4 left, so its price is the whole price.
-const unitOf = row => facts.unitPrice(row.name, row.qty, row.price);
-const priceText = row => (facts.recharges(row.name) ? whole(row.price) : row.qty > 1 ? `${fmt(row.price / row.qty)} <small>each</small>` : whole(row.price));
+// "1000 for 400 mesos" is a bundle: the game only sells whole bundles ("The number of items
+// should be based on the number of items in a bundle", the user's captures, Nov 12). So the card
+// shows and judges such a row by the bundle, 400 per 1,000, which is what the player pays, where
+// it used to say 0.4 each and call a stall 100 mesos cheaper "+0.1". Other stalls' prices are
+// still compared per item (itemFacts().unitPrice), then shown for this row's bundle.
+const bundleOf = row => (row.qty > 1 && !facts.recharges(row.name) && !facts.single(row.name) ? row.qty : 1);
+const perBundle = (votes, per) => (per === 1 || !votes ? votes : votes.map(v => ({ ...v, u: Math.round(v.u * per * 100) / 100 })));
+const unitOf = row => (bundleOf(row) > 1 ? row.price : facts.unitPrice(row.name, row.qty, row.price));
+const priceText = row => (bundleOf(row) > 1 ? `${whole(row.price)} <small>per ${whole(row.qty)}</small>` : whole(row.price));
+// Another stall's ask, beside a row sold per bundles of `per`. When that stall sells another
+// amount at a time it's said as sold there, because the least a player can spend there differs.
+function askText(v, per) {
+  const qty = v.qty ?? per;
+  if (qty === per) return fmt(v.u);
+  return qty === 1 ? `${fmt(v.u / per)} each` : `${whole(Math.round(v.u / per * qty))} for ${whole(qty)}`;
+}
 const sentence = text => (text ? `${text[0].toUpperCase()}${text.slice(1)}.` : '');
+
+// Bought by the hundred and bought now: potions (food too) and arrows. For these the card says
+// whether a row is the cheapest right now, from stalls that can be walked to, once the player
+// turns that on in Settings (compareNow). Until then they get the usual price's words too.
+const BULK_KINDS = ['Potion', 'Arrow'];
+const bulk = name => (settings.compareNow ?? false) && BULK_KINDS.includes(facts.kind(name)?.kind);
+const rightNow = (name, unit, seller, per = 1) => cheapestNow(perBundle(seen[name], per), unit, { except: thisShop(seller), here: place });
+// Where a stall is, for someone already in reach of it: its seller and channel, and its room in
+// the Free Market. Outside it only the same map is in reach, so the map's name would say nothing.
+function stallText(v) {
+  const spot = [v.channel ? `CH.${v.channel}` : null, v.room ? `FM ${v.room}` : null].filter(Boolean).join(' ');
+  return [v.s, spot || 'channel not known', agoText(Date.now() - v.t)].filter(Boolean).join(', ');
+}
 
 function judge(row, seller) {
   const needsHover = isGear(row.name) && !row.stats;
-  const market = marketOf(needsHover ? seen[row.name] : comparable(row.name, row.stats), row.name, seller);
+  const per = bundleOf(row), npc = facts.npc(row.name);
+  const now = bulk(row.name) && row.real && !row.sold && !row.cut ? rightNow(row.name, unitOf(row), seller, per) : null;
+  const market = marketOf(perBundle(needsHover ? seen[row.name] : comparable(row.name, row.stats), per), row.name, seller);
   // a far-below price is only a deal once a hover has shown it's this item: gear by its stats
   const confirmed = isGear(row.name) ? !!row.stats : !!row.named;
-  return verdict({ unit: unitOf(row), sold: row.sold, cut: row.cut, unread: !row.real, needsHover, confirmed, ownFee: session?.own ? SALES_FEE : null }, market, facts.npc(row.name));
+  // rightNow rides along whatever the answer is, for the row's second line
+  return { ...verdict({ unit: unitOf(row), sold: row.sold, cut: row.cut, unread: !row.real, needsHover, confirmed, ownFee: session?.own ? SALES_FEE : null, rightNow: now }, market, npc == null ? npc : npc * per), rightNow: now };
 }
 
 // Where this item was cheaper a moment ago. There's no search in the game, so this saves a walk.
-function cheaperLine(row, seller) {
+function cheaperLine(row, j, seller) {
   if (row.sold || row.cut || !row.real || (isGear(row.name) && !row.stats)) return '';
-  const better = cheaperElsewhere(comparable(row.name, row.stats), unitOf(row), { except: thisShop(seller) });
+  // bought in bulk: only when the answer is that it's dearer here, and only a stall in reach
+  const per = bundleOf(row);
+  if (bulk(row.name)) return j.tag === 'more' ? `<span class="lot-go">${askText(j.rightNow.low, per)} at ${esc(stallText(j.rightNow.low))}</span>` : '';
+  const better = cheaperElsewhere(perBundle(comparable(row.name, row.stats), per), unitOf(row), { except: thisShop(seller) });
   if (!better) return '';
   const where = whereText(better) || 'place not known';
-  return `<span class="lot-go">Cheaper: ${fmt(better.u)} at ${esc(where)}, ${agoText(Date.now() - better.t)}</span>`;
+  return `<span class="lot-go">Cheaper: ${askText(better, per)} at ${esc(where)}, ${agoText(Date.now() - better.t)}</span>`;
 }
 
 // What identifies this copy: a star set, a scroll's rate, how worked gear is.
@@ -260,20 +293,34 @@ function rowFacts(r) {
   ].filter(Boolean);
 }
 
-const fact = (label, value) => `<div class="fact"><span>${label}</span><span>${value}</span></div>`;
+// where: the place a price was seen, on a line of its own under it, because a long map name
+// beside the price squeezed the label to a word a line and ran over it (Nov 12)
+const fact = (label, value, where = '') => `<div class="fact"><span>${label}</span><span>${value}</span></div>${where ? `<div class="fact-where">${esc(where)}</div>` : ''}`;
 
 // The facts behind an item's price, for an opened row or the player's own item.
-function priceFacts(name, stats, seller, { npc = false } = {}) {
+// unit: the row's own price, when it's a row, and per: its bundle (bundleOf), which every price
+// here is then for.
+function priceFacts(name, stats, seller, { npc = false, unit = null, per = 1 } = {}) {
   const gear = isGear(name);
-  const votes = gear ? comparable(name, stats) : seen[name];
+  const votes = perBundle(gear ? comparable(name, stats) : seen[name], per);
   const market = marketOf(gear && !stats ? seen[name] : votes, name, seller);
-  const lines = [];
-  if (gear && !stats) {
+  const lines = per > 1 ? [`<div class="state">Prices per ${whole(per)}, as sold here.</div>`] : [];
+  if (bulk(name)) {
+    // the cheapest right now first, then the usual price, which says whether today is a dear day
+    const now = rightNow(name, unit ?? Infinity, seller, per);
+    if (now) lines.push(fact(now.best ? 'Next cheapest right now' : 'Cheapest right now', askText(now.low, per), stallText(now.low)));
+    else lines.push(fact('Right now', 'nobody else seen'));
+    const sales = market && `${market.soldCount} sale${market.soldCount === 1 ? '' : 's'}`;
+    if (market?.firm) lines.push(fact(`Usual price <small>${market.basis === 'sold' ? `sold, ${sales}` : 'from asks'}</small>`, fmt(market.price)));
+    else if (market?.sold != null) lines.push(fact(`Sold, ${sales}`, fmt(market.sold)));
+    if (now && now.low.u !== now.high) lines.push(fact('Seen this hour', `${fmt(now.low.u)} to ${fmt(now.high)}`));
+    else if (market && market.low !== market.high) lines.push(fact('Seen', `${fmt(market.low)} to ${fmt(market.high)}`));
+  } else if (gear && !stats) {
     if (market) lines.push(fact('Seen, any stats', `${fmt(market.low)} to ${fmt(market.high)}`));
   } else if (market) {
     if (market.sold != null) lines.push(fact(`${gear ? 'Same stats sold' : 'Sold'}, ${market.soldCount} sale${market.soldCount === 1 ? '' : 's'}`, fmt(market.sold)));
     const near = cheaperElsewhere(votes, Infinity, { except: thisShop(seller) });
-    if (near) lines.push(fact(seller ? 'Cheapest other ask' : 'Cheapest ask', `${fmt(near.u)} <em>${esc(whereText(near) || '')}</em>`));
+    if (near) lines.push(fact(seller ? 'Cheapest other ask' : 'Cheapest ask', askText(near, per), whereText(near) || ''));
     else if (market.cheapest != null) lines.push(fact(seller ? 'Cheapest other ask' : 'Cheapest ask', fmt(market.cheapest)));
     if (market.low !== market.high) lines.push(fact('Seen', `${fmt(market.low)} to ${fmt(market.high)}`));
   } else {
@@ -282,7 +329,7 @@ function priceFacts(name, stats, seller, { npc = false } = {}) {
     const nearest = stats ? closestGear(seen[name], stats, { except: thisShop(seller) }) : [];
     if (nearest.length) lines.push(`<div class="lot-group">Closest stats seen</div>${nearest.map(v => fact(esc(gearState(v.stats, facts.slots(name), facts.base(name))), fmt(v.u))).join('')}`);
   }
-  if (npc && facts.npc(name) != null) lines.push(fact('NPC pays', fmt(facts.npc(name))));
+  if (npc && facts.npc(name) != null) lines.push(fact('NPC pays', fmt(facts.npc(name) * per)));
   return lines.join('');
 }
 
@@ -303,10 +350,12 @@ function rowName(r) {
 
 function rowHtml({ r, j }, open) {
   const known = sentence(rowFacts(r).join(', '));
-  const note = [known, j.note].filter(Boolean).join(' ');
+  // a percentage on something bought in bulk means there was no other stall to set it against
+  const alone = bulk(r.name) && !j.rightNow && place?.map && (j.tag === 'deal' || j.tag === 'over') ? 'Nobody else seen this hour.' : '';
+  const note = [known, j.note, alone].filter(Boolean).join(' ');
   const more = open && r.real
-    ? `<div class="lot-facts">${known ? `<div class="state">${esc(known)}</div>` : isGear(r.name) && !r.stats ? '<div class="state">Reading its stats</div>' : ''}${priceFacts(r.name, r.stats, session.seller)}</div>`
-    : `${note ? `<span class="lot-note">${esc(note)}</span>` : ''}${cheaperLine(r, session.seller)}`;
+    ? `<div class="lot-facts">${known ? `<div class="state">${esc(known)}</div>` : isGear(r.name) && !r.stats ? '<div class="state">Reading its stats</div>' : ''}${priceFacts(r.name, r.stats, session.seller, { unit: unitOf(r), per: bundleOf(r) })}</div>`
+    : `${note ? `<span class="lot-note">${esc(note)}</span>` : ''}${cheaperLine(r, j, session.seller)}`;
   return `<div class="lot${open ? ' open' : ''}${r.sold ? ' sold' : ''}">
     <span class="say ${j.tag}">${esc(minus(j.label))}</span><span class="what named">${rowName(r)}</span><span class="cost">${priceText(r)}</span>${more}</div>`;
 }
@@ -343,9 +392,10 @@ function hoveredLine() {
   return line && session && !session.closed && session.lines.includes(line) ? line : null;
 }
 
-function playerRows() {
+// noting: false for the example card in Settings, whose made-up deals must never be remembered
+function playerRows(noting = true) {
   const rows = judgedRows(), hot = hoveredLine();
-  noteDeals(rows);
+  if (noting) noteDeals(rows);
   const deals = rows.filter(x => x.j.rank === 0).length;
   // "SHOP" is the default stall title, so the seller is the heading and a real title goes under it
   const title = session.seller && session.title && !/^shop$/i.test(session.title.trim()) ? `“${session.title}”` : '';
@@ -456,7 +506,8 @@ function render() {
   }
   // Written only when changed, so the list keeps its scroll position between scans.
   if (top !== shownTop) panelTop.innerHTML = shownTop = top;
-  if (list !== shownList) panelList.innerHTML = shownList = list;
+  const listChanged = list !== shownList;
+  if (listChanged) panelList.innerHTML = shownList = list;
   if (foot !== shownFoot) panelFoot.innerHTML = shownFoot = foot;
   const barLine = barHtml(issue);
   if (barLine !== shownBar) barText.innerHTML = shownBar = barLine;
@@ -466,6 +517,22 @@ function render() {
   showChannel();
   barLive.className = `live${issue?.level === 'warn' ? ' bad' : stream ? ' on' : ''}`;
   fitPopOut();
+  // again once the popped-out window has taken its new height
+  if (listChanged) { followHover(); setTimeout(followHover, 200); }
+}
+
+// A card dragged low on the screen is shorter than its list, which then scrolls. The hovered row
+// is the one being read, so the list scrolls just far enough to show all of it (the user's wish,
+// Nov 12: hovering the sixth row opened it out of sight). Only when the list was redrawn, so a
+// player's own scrolling isn't fought. Measured on screen and divided by the page's zoom,
+// because scrollTop isn't zoomed (see the text size in Settings).
+function followHover() {
+  const open = panelList.querySelector('.lot.open');
+  if (!open || !panelList.clientHeight) return;
+  const box = panelList.getBoundingClientRect(), row = open.getBoundingClientRect();
+  const zoom = box.height / panelList.offsetHeight || 1;
+  if (row.top < box.top) panelList.scrollTop -= (box.top - row.top) / zoom;
+  else if (row.bottom > box.bottom) panelList.scrollTop += Math.min(row.bottom - box.bottom, row.top - box.top) / zoom;
 }
 
 // ---------- live capture ----------
@@ -779,10 +846,44 @@ function showTab(name) {
 for (const tab of Object.keys(TABS)) $(TABS[tab][0]).onclick = () => showTab(tab);
 
 // ---------- settings ----------
+// The example card beside the stall card's settings: a made-up shop in the Free Market, drawn
+// by the real card's own code so it always shows what the settings do. The page's shop, prices
+// and place are swapped for made-up ones while it's drawn and put back after, which is safe
+// because drawing never waits for anything. Every seller and price here is invented.
+function exampleCard() {
+  const now = Date.now(), MIN = 6e4, DAY = 864e5;
+  const names = ['Aster', 'Birch', 'Cedar', 'Dahlia', 'Elm'];
+  // five sellers' asks from the last days make the usual price, and stalls seen this hour are in reach
+  const usual = (prices, qty = 1) => prices.map((u, i) => ({ u, qty, s: names[i], sold: false, t: now - (1 + i % 3) * DAY, map: 'Free Market', room: 1 + i, channel: 1 + i }));
+  const stall = (u, s, min, ch, room, qty = 1) => ({ u, qty, s, sold: false, t: now - min * MIN, map: 'Free Market', room, channel: ch });
+  const row = (name, qty, price) => ({ list: 'shop', name, qty, price, sold: false, real: true, cut: false, clipped: false });
+  const real = { session, seen, place, held, channel };
+  try {
+    seen = {
+      'Orange Potion': [...usual([135, 138, 140, 142, 150]), stall(130, 'Herbie', 3, 5, 7), stall(145, 'Pottery', 20, 5, 2)],
+      Elixir: [...usual([900, 910, 920, 950, 990]), stall(920, 'Pottery', 12, 5, 2)],
+      'Arrows for Bows': [...usual([0.5, 0.5, 0.6, 0.6, 0.7], 1000), stall(0.4, 'Fletch', 8, 2, 3, 1000)], // 1000 for 400
+      // sold one at a time here, and by the bundle at the cheaper stall
+      'Arrows for Crossbows': [...usual([1, 1, 1, 2, 2]), stall(0.4, 'Fletch', 8, 2, 3, 1000)],
+      'Iron Ore': [...usual([340, 350, 360, 370, 380]), stall(300, 'Herbie', 3, 5, 7)],
+    };
+    const rows = [row('Orange Potion', 1, 139), row('Elixir', 1, 899), row('Arrows for Bows', 1000, 500), row('Arrows for Crossbows', 1, 1), row('Iron Ore', 1, 350)];
+    session = { kind: 'player', seller: 'Sunny', title: 'Pots and arrows', own: false, closed: false, rows, lines: rows.map(listing => ({ listing })) };
+    place = { map: 'Free Market', room: 3 };
+    channel = 5;
+    held = null;
+    return `<div class="bar"><span class="live on"></span><span class="text">Scanning</span><span class="channel">CH.5</span></div><div class="list">${playerRows(false)}</div>`;
+  } finally {
+    ({ session, seen, place, held, channel } = real);
+  }
+}
+
 function showSettings() {
+  try { $('exampleCard').innerHTML = exampleCard(); } catch (err) { console.error(err); } // the item list may not be loaded yet
   $('settingChannelWatch').checked = settings.channelWatch;
   $('settingAutoUpdate').checked = settings.autoUpdate ?? true;
   $('settingShareScans').checked = settings.shareScans ?? true;
+  $('settingCompareNow').checked = settings.compareNow ?? false;
   $('settingTextSize').value = String(settings.textSize ?? 1);
   $('settingTheme').value = settings.theme ?? 'auto';
   showTextSize();
@@ -959,6 +1060,18 @@ async function setChannelWatch(on) {
   toggle.disabled = false;
 }
 $('settingChannelWatch').onchange = e => setChannelWatch(e.target.checked);
+
+// The card is drawn again at once, with the other answer for potions and arrows.
+$('settingCompareNow').onchange = async e => {
+  try {
+    settings = await api('/api/settings', { compareNow: e.target.checked });
+    $('settingsNote').textContent = '';
+    render();
+  } catch (err) {
+    $('settingsNote').textContent = `Couldn't save the setting: ${err.message}`;
+  }
+  showSettings();
+};
 
 // The local server starts or stops uploading at once (serve.js). Off, scans still show on the stall
 // card, they just aren't sent.
