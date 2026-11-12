@@ -24,16 +24,21 @@ globalThis.PUBLIC_SITE = true; // read by prices.js
     return data;
   }
 
+  // Every read is asked with &shared, so the price server answers all visitors from one copy, up
+  // to a minute old (cloud/api.js). Says whether anything changed.
   async function sync() {
+    let changed = false;
     for (let more = true; more;) {
-      const page = await get(`${API}/v1/sync?after=${cursor}`);
+      const page = await get(`${API}/v1/sync?after=${cursor}&shared`);
       for (const l of page.listings) listings.set(l.id, l);
       for (const id of page.removed) listings.delete(id);
+      changed ||= page.listings.length > 0 || page.removed.length > 0;
       cursor = page.cursor;
       more = page.more;
     }
     const since = Date.now() - SEEN_DAYS * DAY_MS;
     for (const [id, l] of listings) if (l.lastSeen <= since) listings.delete(id);
+    return changed;
   }
 
   // The shape serve.js gives the page: { items, seen, status }. When the price server can't be
@@ -41,8 +46,8 @@ globalThis.PUBLIC_SITE = true; // read by prices.js
   async function state() {
     let online = true;
     try {
-      await sync();
-      items = (await get(`${API}/v1/items`)).items;
+      // The item list's counts only change when a listing does, so it's asked again only then.
+      if (await sync() || !items) items = (await get(`${API}/v1/items?shared`)).items;
     } catch (err) {
       if (!items) throw err;
       online = false;
@@ -57,7 +62,7 @@ globalThis.PUBLIC_SITE = true; // read by prices.js
       return itemList;
     }
     if (path.startsWith('/api/state')) return state();
-    if (path.startsWith('/api/history?')) return get(`${API}/v1/history${path.slice(path.indexOf('?'))}`);
+    if (path.startsWith('/api/history?')) return get(`${API}/v1/history${path.slice(path.indexOf('?'))}&shared`);
     throw new Error(`The website has no ${path}.`);
   };
 

@@ -4,6 +4,7 @@
 //   GET  /v1/sync?after=<updated>:<id>  listings changed since the cursor, last SEEN_DAYS only
 //   GET  /v1/items                      every item with listings, with its counts
 //   GET  /v1/history?name=<item>        every listing of one item
+//   Any of the three with &shared      the same, from a copy up to a minute old (the website's way)
 //   POST /v1/listings                   an install's scans: X-Install-Key header, { rows }
 //   POST /v1/admin/...                  the author's fixes, with Authorization: Bearer <ADMIN_TOKEN>
 const { listingRules } = require('../listing.js');
@@ -11,6 +12,7 @@ const { SEEN_DAYS } = require('../pricing.js');
 
 const DAY_MS = 864e5;
 const SYNC_PAGE = 5000;
+const SHARED_SECONDS = 60;
 const MAX_ROWS = 500;
 const MAX_BODY = 1024 * 1024;
 const INSTALL_KEY = /^[0-9a-f]{64}$/;
@@ -247,14 +249,26 @@ function createApi(itemList, { syncPage = SYNC_PAGE } = {}) {
     },
   };
 
-  async function handle(request, env) {
+  const reads = { '/v1/sync': sync, '/v1/items': items, '/v1/history': history };
+
+  // A read asked with ?shared is answered from a copy kept for SHARED_SECONDS, one per address, so
+  // a crowd on the website is one database read a minute and can't use up what the app needs. The
+  // website asks that way. The app doesn't: it syncs right after an upload to see its own scans.
+  // A copy that's behind loses nothing, because the next sync carries on from its cursor.
+  async function handle(request, env, { cache, waitUntil = () => {} } = {}) {
     const url = new URL(request.url);
     try {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET' } });
       if (request.method === 'GET') {
-        if (url.pathname === '/v1/sync') return json(await sync(env, url));
-        if (url.pathname === '/v1/items') return json(await items(env));
-        if (url.pathname === '/v1/history') return json(await history(env, url));
+        const read = reads[url.pathname];
+        if (read) {
+          if (!cache || !url.searchParams.has('shared')) return json(await read(env, url));
+          const kept = await cache.match(url.href);
+          if (kept) return kept;
+          const answer = json(await read(env, url), 200, { 'Cache-Control': `public, max-age=${SHARED_SECONDS}` });
+          waitUntil(cache.put(url.href, answer.clone()));
+          return answer;
+        }
         if (url.pathname === '/' || url.pathname === '/v1') return json({ name: 'MapleScanner shared prices', ok: true });
       }
       if (request.method === 'POST') {

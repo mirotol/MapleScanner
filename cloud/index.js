@@ -5,5 +5,5 @@ import itemList from '../osms-items.json';
 const { handle } = api.createApi(itemList);
 
 export default {
-  fetch: (request, env) => handle(request, env),
+  fetch: (request, env, ctx) => handle(request, env, { cache: caches.default, waitUntil: p => ctx.waitUntil(p) }),
 };

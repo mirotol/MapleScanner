@@ -9,16 +9,19 @@ const ADMIN = 'a'.repeat(40);
 const KEY_A = 'a1'.repeat(32), KEY_B = 'b2'.repeat(32);
 const DAY = 864e5;
 
-function worker({ syncPage } = {}) {
+// cache: a made-up copy of Cloudflare's, which never forgets
+function worker({ syncPage, cache } = {}) {
   const env = { DB: d1(), ADMIN_TOKEN: ADMIN };
+  const kept = new Map();
+  const ctx = cache ? { cache: { match: async key => kept.get(key)?.clone(), put: async (key, res) => { kept.set(key, res); } } } : undefined;
   const { handle } = createApi(items, { syncPage });
   const call = async (method, path, { body, key, token, headers = {} } = {}) => {
     const res = await handle(new Request(`http://worker${path}`, {
       method,
       headers: { ...(key ? { 'X-Install-Key': key } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
-    }), env);
-    return { status: res.status, body: await res.json() };
+    }), env, ctx);
+    return { status: res.status, body: await res.json(), caching: res.headers.get('Cache-Control') };
   };
   const upload = (rows, key = KEY_A) => call('POST', '/v1/listings', { body: { rows }, key });
   const admin = (action, body, token = ADMIN) => call('POST', `/v1/admin/${action}`, { body, token });
@@ -183,6 +186,36 @@ test('sync pages through by its cursor, and only the last 14 days', async () => 
   assert.equal((await w.history('Red Potion')).length, 4, 'older listings stay in the history');
   await w.upload([shop('Red Potion', 'a', 50)]);
   assert.deepEqual((await w.sync(second.cursor)).listings.map(l => l.seller), ['a'], 'seen again, so synced again');
+});
+
+test('a read asked with &shared is one copy for everyone, and the app still reads the newest', async () => {
+  const w = worker({ cache: true });
+  await w.upload([shop('Red Potion', 'a', 50)]);
+  const first = await w.call('GET', '/v1/sync?after=0:0&shared');
+  assert.equal(first.caching, 'public, max-age=60');
+  assert.equal((await w.call('GET', '/v1/items?shared')).body.items[0].listings, 1);
+  assert.equal((await w.call('GET', '/v1/history?name=Red%20Potion&shared')).body.length, 1);
+  await w.upload([shop('Red Potion', 'b', 60)]);
+
+  const fresh = await w.call('GET', '/v1/sync?after=0:0');
+  assert.equal(fresh.caching, 'no-store');
+  assert.equal(fresh.body.listings.length, 2);
+  assert.equal((await w.itemList())[0].listings, 2);
+  assert.equal((await w.history('Red Potion')).length, 2);
+  const again = await w.call('GET', '/v1/sync?after=0:0&shared');
+  assert.deepEqual(again.body, first.body, 'the copy, not a new read');
+  assert.equal((await w.call('GET', '/v1/items?shared')).body.items[0].listings, 1);
+  assert.equal((await w.call('GET', '/v1/history?name=Red%20Potion&shared')).body.length, 1);
+  // a copy that's behind loses nothing: its cursor is a new address, so the next sync has the rest
+  const next = await w.call('GET', `/v1/sync?after=${first.body.cursor}&shared`);
+  assert.deepEqual(next.body.listings.map(l => l.seller), ['b']);
+});
+
+test('an error is never kept as the shared copy, and without a cache &shared is a plain read', async () => {
+  const w = worker({ cache: true });
+  assert.equal((await w.call('GET', '/v1/sync?after=x&shared')).caching, 'no-store');
+  assert.equal((await w.call('GET', '/v1/history?name=Nothing&shared')).status, 404);
+  assert.equal((await worker().call('GET', '/v1/items?shared')).caching, 'no-store');
 });
 
 test('an import keeps its own dates', async () => {
