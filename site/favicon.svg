@@ -1,0 +1,22 @@
+<!-- The site's icon: a scan frame around a maple leaf, on a cream tile. Drawn for MapleScanner, not game art. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="leaf" x1="34" y1="40" x2="94" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffbe0b"/>
+      <stop offset=".5" stop-color="#fb8b0a"/>
+      <stop offset="1" stop-color="#f4560b"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="29" fill="#fdf6ec" stroke="#ecdcc6" stroke-width="1.5"/>
+  <g fill="none" stroke="#232323" stroke-width="8.500" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26.500 48v-9.500a12 12 0 0 1 12-12H51"/>
+    <path d="M77 26.500h12.500a12 12 0 0 1 12 12V48"/>
+    <path d="M101.500 78v11.500a12 12 0 0 1-12 12H77"/>
+    <path d="M51 101.500H38.500a12 12 0 0 1-12-12V78"/>
+  </g>
+  <path fill="url(#leaf)" stroke="url(#leaf)" stroke-width="2.200" stroke-linejoin="round"
+    d="M64 31l5.800 9.300 5.700-1.300-2 14 10-6.500 1.800 5 8.700-.5-3.700 9 3.200 4.300L81 71l4.200 5.500L65.500 84.500h-3L42.800 76.500 47 71l-12.500-6.700 3.200-4.300-3.700-9 8.700.5 1.800-5 10 6.500-2-14 5.700 1.300z"/>
+  <!-- the leaf's right half, a shade deeper -->
+  <path fill="#e8430a" opacity=".2" d="M64 31l5.800 9.300 5.700-1.300-2 14 10-6.500 1.800 5 8.700-.5-3.700 9 3.200 4.300L81 71l4.200 5.500L65.500 84.500H64z"/>
+  <path fill="none" stroke="#e2470a" stroke-width="4.200" stroke-linecap="round" stroke-linejoin="round" d="M64 59v35M52.500 62.300L64 70.400l11.500-8.100"/>
+</svg>

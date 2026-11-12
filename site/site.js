@@ -52,7 +52,7 @@ globalThis.PUBLIC_SITE = true; // read by prices.js
 
   window.api = async path => {
     if (path === 'osms-items.json') {
-      itemList ??= get('osms-items.json');
+      itemList ??= get('/osms-items.json'); // from the top: an item's page is under /item/
       facts = itemFacts(await itemList);
       return itemList;
     }

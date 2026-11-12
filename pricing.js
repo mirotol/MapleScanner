@@ -474,6 +474,10 @@ const agoText = ms => (ms < 6e4 ? 'just now' : ms < 36e5 ? `${Math.round(ms / 6e
 const ICON_ORIGIN = typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? location.origin : '';
 const iconTag = id => (Number.isInteger(id) ? `<img class="icon" src="${ICON_ORIGIN}/icon/${id}.png" alt="" width="22" height="22" draggable="false">` : '<span class="icon"></span>');
 
+// An item's address on the website, /item/<slug>: "Arrow for Bow" is arrow-for-bow, and "Dragon's
+// Tail" dragons-tail. No two names in osms-items.json share one (test/pricing.test.js).
+const itemSlug = name => name.toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // An icon and a name, side by side in a .named box (theme.css), so a long name wraps beside the
 // icon instead of under it.
@@ -566,4 +570,4 @@ async function api(path, body) {
   return data;
 }
 
-if (typeof module !== 'undefined') module.exports = { SEEN_DAYS, marketState, norm, sim, fmt, chartRange, timeTicks, dateText, whole, sameItem, matchName, statsFit, completeName, sharedStart, startsName, tooltipName, knownTitle, placeRows, tooltipMoved, lineForTooltip, copyKey, mergeCopies, channelFollower, itemFacts, itemKind, passesStats, statBounds, iconTag, iconName, parseGearStats, gearState, STAT_NAMES, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText };
+if (typeof module !== 'undefined') module.exports = { SEEN_DAYS, marketState, itemSlug, esc, norm, sim, fmt, chartRange, timeTicks, dateText, whole, sameItem, matchName, statsFit, completeName, sharedStart, startsName, tooltipName, knownTitle, placeRows, tooltipMoved, lineForTooltip, copyKey, mergeCopies, channelFollower, itemFacts, itemKind, passesStats, statBounds, iconTag, iconName, parseGearStats, gearState, STAT_NAMES, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText };

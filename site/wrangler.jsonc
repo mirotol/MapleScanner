@@ -12,8 +12,9 @@
     // /download serves download.html, and an unknown address gets 404.html
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page",
-    // Only icons run worker.js. Every other address is answered from the files without it.
-    "run_worker_first": ["/icon/*"]
+    // Only icons, the 404 page's picture, item pages and the sitemap run worker.js. Every other address is answered from
+    // the files without it.
+    "run_worker_first": ["/icon/*", "/art/*", "/item/*", "/sitemap.xml"]
   },
   // Item icons, each downloaded from OSMS once (icons.js).
   // Created Nov 10 with `wrangler r2 bucket create maplescanner-icons`

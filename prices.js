@@ -18,6 +18,31 @@ let facts = itemFacts({}); // NPC prices, gear slots and item ids, from osms-ite
 let tab = 'all', group = null;
 let card = null; // the open item: { name, history, win, show, sortBy, filter, statsOpen, all }
 
+// An open card's address is a link to it. In the app's frame that's ?item=Iron Ore. On the
+// website each item has a page of its own, /item/iron-ore, which the site's Worker answers with
+// this page and that item's title and summary written in (site/items.js), so the title here is
+// worded as it is there, and LIST_TITLE as in site/build.js.
+const LIST_TITLE = 'MapleStory Classic Free Market prices · MapleScanner';
+const itemAddress = name => (SITE ? `/item/${itemSlug(name)}` : `?item=${encodeURIComponent(name)}`);
+// The item the address names, if it's one with listings
+function addressItem() {
+  const slug = SITE && /^\/item\/([^/]+)/.exec(location.pathname)?.[1];
+  const name = slug ? state.items.find(i => itemSlug(i.name) === slug)?.name : new URLSearchParams(location.search).get('item');
+  return name && itemOf(name) ? name : null;
+}
+// Shows `name`'s address, or the list's for none. On the website a card opened or closed is a
+// step in the browser's history, so Back closes or reopens it (popstate, at the end).
+function showAddress(name) {
+  if (!SITE) return window.history.replaceState(null, '', name ? itemAddress(name) : location.pathname);
+  const path = name ? itemAddress(name) : '/';
+  document.title = name ? `${name} price · MapleStory Classic Free Market · MapleScanner` : LIST_TITLE;
+  document.querySelector('link[rel="canonical"]')?.setAttribute('href', location.origin + path);
+  if (location.pathname === path && !location.search) return;
+  // An old link (/?item=Iron Ore) becomes the new address in place
+  window.history[location.search ? 'replaceState' : 'pushState'](null, '', path);
+  $('itemSummary')?.remove(); // the server's words were for the item the page came with
+}
+
 const isGear = name => facts.slots(name) != null;
 const itemOf = name => state.items.find(i => i.name === name);
 const plural = (n, word) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
@@ -165,7 +190,7 @@ function renderList() {
       const under = `${s ? `<span class="phone under">${dotsTag(s)}${esc(s.short)}</span>` : ''
         }<span class="phone under">${i.low ? `cheapest ask ${fmt(i.low.u)}` : 'no ask'}</span>`;
       return `<tr class="item" data-name="${esc(i.name)}">
-        <td class="item-name"><span class="named">${iconTag(facts.icon(i.name))}<span><span class="name">${esc(i.name)}</span><span class="kind">${esc(i.kind.kind)}${seen}</span></span></span></td>
+        <td class="item-name"><span class="named">${iconTag(facts.icon(i.name))}<span>${SITE ? `<a class="name" href="${itemAddress(i.name)}">${esc(i.name)}</a>` : `<span class="name">${esc(i.name)}</span>`}<span class="kind">${esc(i.kind.kind)}${seen}</span></span></span></td>
         <td class="num usual">${usual}${under}</td>
         ${sure}
         <td class="num ask">${low}</td>
@@ -177,17 +202,8 @@ function renderList() {
 
 // ---------- the item card ----------
 
-// The card's listings as votes for market.js, with what the table needs kept alongside.
-// An ask later seen sold (`gone`) isn't on sale any more, so it's only listed as its sale.
-function votesOf(name, history) {
-  const votes = history.map(h => ({
-    id: h.id, u: facts.unitPrice(name, h.qty, h.price), s: h.seller, sold: !!h.sold, t: h.lastSeen,
-    channel: h.channel, map: h.map, room: h.room, shop: h.shop, qty: h.qty, price: h.price, copies: h.copies,
-    stats: h.stats ? JSON.parse(h.stats) : null,
-  }));
-  for (const v of votes) v.gone = soldSince(v, votes);
-  return votes;
-}
+// The card's listings as votes for market.js (historyVotes there)
+const votesOf = (name, history) => historyVotes(name, history, facts);
 
 // Dots or Trend, kept while moving from item to item
 let chartView = 'dots';
@@ -207,7 +223,7 @@ async function openCard(name) {
   // An opening dialog focuses its first button, the ×, which then wore the focus ring as if
   // chosen (Nov 12). The card takes the focus itself, and Tab still goes to the × first.
   if (!$('card').open) { $('card').showModal(); $('card').focus(); }
-  window.history.replaceState(null, '', `?item=${encodeURIComponent(name)}`); // so the address is a link to this item
+  showAddress(name); // so the address is a link to this item
 }
 
 function statChips(name, stats) {
@@ -490,7 +506,13 @@ $('list').addEventListener('click', e => {
     return;
   }
   const row = e.target.closest('tr.item');
-  if (row) openCard(row.dataset.name).catch(err => say(err.message, true));
+  if (!row) return;
+  // On the website the name is a link to the item's page: Ctrl or Shift click opens it as one
+  if (e.target.closest('a')) {
+    if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+  }
+  openCard(row.dataset.name).catch(err => say(err.message, true));
 });
 $('tabs').addEventListener('click', e => {
   const chip = e.target.closest('[data-tab]');
@@ -560,14 +582,20 @@ cardEl.addEventListener('change', e => {
   card.filter = filterOn(f) ? f : null;
   renderCard();
 });
-cardEl.addEventListener('close', () => { card = null; window.history.replaceState(null, '', location.pathname); });
+cardEl.addEventListener('close', () => { card = null; showAddress(null); });
+// Back and Forward on the website: the card follows the address
+if (SITE) window.addEventListener('popstate', () => {
+  const name = addressItem();
+  if (name) openCard(name).catch(err => say(err.message, true));
+  else { closeCard(); showAddress(null); }
+});
 
 api('osms-items.json').then(async list => {
   facts = itemFacts(list);
   await reload();
-  // A link to one item (?item=Iron Ore) opens its card
-  const linked = new URLSearchParams(location.search).get('item');
-  if (linked && itemOf(linked)) await openCard(linked);
+  // A link to one item (?item=Iron Ore, or /item/iron-ore on the website) opens its card
+  const linked = addressItem();
+  if (linked) await openCard(linked);
 }).catch(err => say(err.message, true));
 
 window.reload = reload; // the Prices tab calls this each time it's opened

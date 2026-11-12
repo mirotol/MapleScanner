@@ -5,7 +5,9 @@
 
 /* ---------- the header, on every page ---------- */
 .site-head { display: flex; align-items: center; gap: 8px 24px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; padding: 0 24px; border-bottom: 1px solid var(--dusk); }
-.site-head .brand { font: 600 20px/1 var(--display); color: var(--cloud); text-decoration: none; padding: 16px 0; margin-right: auto; }
+/* the site's icon before its name, as in the browser's tab and on the app */
+.site-head .brand { display: flex; align-items: center; gap: 9px; font: 600 20px/1 var(--display); color: var(--cloud); text-decoration: none; padding: 13px 0; margin-right: auto; }
+.site-head .brand img { display: block; }
 .site-head nav { display: flex; gap: 4px; align-self: stretch; }
 /* the chosen page has an orange line under it, like the app's tabs */
 .site-head nav a { display: flex; align-items: center; font: 600 14px/1 var(--display); color: var(--mist); text-decoration: none; padding: 2px 10px 0; margin-bottom: -1px; border-bottom: 2px solid transparent; }
@@ -72,3 +74,19 @@
 
 .site-foot { max-width: 1040px; margin: 0 auto; padding: 24px 24px 40px; border-top: 1px solid var(--dusk); color: var(--mist); font-size: 13px; }
 @media (max-width: 800px) { .site-foot { padding: 20px 16px 32px; } }
+
+/* ---------- item pages (/item/iron-ore) ----------
+   In the list an item's name is a link to its page, and looks as it does in the app. */
+#list a.name { color: inherit; text-decoration: none; }
+#list a.name:hover { text-decoration: underline; }
+/* What the server wrote about the item the page was opened for (items.js): the same figures as
+   its card, in words, for a reader with no scripts. It sits above the list, behind the card. */
+.item-summary { max-width: 1200px; margin: 0 auto; padding: 14px 24px 0; }
+.item-summary h1 { font: 600 20px/1.2 var(--display); margin: 0 0 4px; }
+.item-summary p { margin: 0; color: var(--mist); max-width: 70ch; }
+@media (max-width: 800px) { .item-summary { padding: 12px 16px 0; } }
+
+/* ---------- the 404 page ----------
+   Mano stands beside the words, at twice its size with its pixels kept square. */
+.hero .lost { width: 210px; height: auto; justify-self: center; image-rendering: pixelated; }
+@media (max-width: 800px) { .hero .lost { width: 158px; justify-self: start; order: -1; } }

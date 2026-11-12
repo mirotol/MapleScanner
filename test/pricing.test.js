@@ -756,3 +756,17 @@ test('time marks count back in hours for a day, then mark dates', () => {
   assert.deepEqual(weeks.map(t => t.label).slice(-2), ['26 Oct', '2 Nov']);
   assert.equal(dateText(new Date(2026, 8, 28).getTime()), '28 Sep');
 });
+
+test('every item has an address of its own on the website', () => {
+  const { itemSlug } = require('../pricing.js');
+  assert.equal(itemSlug('Arrow for Bow'), 'arrow-for-bow');
+  assert.equal(itemSlug("Dragon's Tail (M)"), 'dragons-tail-m');
+  const { names } = require('../osms-items.json');
+  const taken = new Map();
+  for (const name of names) {
+    const slug = itemSlug(name);
+    assert.ok(slug, `${name} has no address`);
+    assert.equal(taken.get(slug), undefined, `${name} and ${taken.get(slug)} share /item/${slug}`);
+    taken.set(slug, name);
+  }
+});

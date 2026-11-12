@@ -1,6 +1,6 @@
 // Turns raw listings into a market summary and a verdict on one listing. Pure, so it can be
 // tested in Node and shared by the pages. See "Average or median" in CLAUDE.md for the rules.
-const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear } = (({ norm, sim, fmt }) => {
+const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear, historyVotes } = (({ norm, sim, fmt }) => {
   const DAY_MS = 864e5;
   const WINDOWS = [3, 7, 14]; // days, shortest first, because prices move fast
   // Named sellers a usual price needs to be firm (raised from 3 on Nov 10, to be harder to fake)
@@ -311,7 +311,21 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince,
       .slice(0, limit);
   }
 
-  return { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear };
+  // One item's listings, as the price server gives them (/v1/history), as votes, with what the
+  // Prices card's table needs kept alongside. An ask later seen sold (`gone`) isn't on sale any
+  // more, so it's only listed as its sale. Shared by the card (prices.js) and the website's item
+  // pages (site/items.js), so both work the same figures out.
+  function historyVotes(name, history, facts) {
+    const votes = history.map(h => ({
+      id: h.id, u: facts.unitPrice(name, h.qty, h.price), s: h.seller, sold: !!h.sold, t: h.lastSeen,
+      channel: h.channel, map: h.map, room: h.room, shop: h.shop, qty: h.qty, price: h.price, copies: h.copies,
+      stats: h.stats ? JSON.parse(h.stats) : null,
+    }));
+    for (const v of votes) v.gone = soldSince(v, votes);
+    return votes;
+  }
+
+  return { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear, historyVotes };
 })(typeof module !== 'undefined' ? require('./pricing.js') : { norm, sim, fmt });
 
-if (typeof module !== 'undefined') module.exports = { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear };
+if (typeof module !== 'undefined') module.exports = { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear, historyVotes };
