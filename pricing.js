@@ -27,6 +27,11 @@ const wordClose = (a, b, loose) => {
 function sameItem(name, target, cut = false, loose = false) {
   let a = norm(name).split(' '), b = norm(target).split(' ');
   if (a.join('') === b.join('')) return true;
+  // A slash standing alone can read as a letter ("Silver f Black Stealer Pants"), so one
+  // character where the name has its slash is dropped. A cut-off read must go on after
+  // it, or the character could be the start of another word.
+  const slash = target.indexOf(' / '), at = slash < 0 ? -1 : norm(target.slice(0, slash)).split(' ').length;
+  if (at > 0 && a[at]?.length === 1 && a[at] !== b[at] && (!cut || a.length > at + 1)) a.splice(at, 1);
   if (cut) {
     if (a.length > b.length) return false;
     b = b.slice(0, a.length);

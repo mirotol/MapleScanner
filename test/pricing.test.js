@@ -61,6 +61,16 @@ test('a four-letter word can be a letter off when no other name fits', () => {
   assert.equal(sameItem('Gold Ore', 'Bold Ore'), false, 'still not the same item unless asked');
 });
 
+test('a slash read as a letter is still the name', () => {
+  assert.equal(matchName('Silver f Black Stealer Pants', realNames), 'Silver / Black Stealer Pants');
+  assert.equal(matchName('Red l Gold Stealer Pants', realNames), 'Red / Gold Stealer Pants');
+  assert.equal(matchName('Silver / Black Stealer Pants', realNames), 'Silver / Black Stealer Pants');
+  assert.equal(matchName('Silver f Gold Stealer Pants', realNames), null, 'the colours still have to fit');
+  assert.equal(completeName('Silver f Black Stea', null, realNames), 'Silver / Black Stealer Pants');
+  assert.equal(sameItem('Silver f', 'Silver / Black Stealer Pants', true), false, 'cut off there, f could start a word');
+  assert.equal(sameItem('Blue f Moon Shoes', 'Blue Moon Shoes'), false, 'only where the name has a slash');
+});
+
 test('a cut-off read gets no extra leeway', () => {
   assert.equal(matchName('otar Earr', ['Star Earrings'], true), null);
 });
