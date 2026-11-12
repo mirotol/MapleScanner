@@ -339,6 +339,21 @@ function mergeCopies(rows) {
   return [...frame.values()];
 }
 
+// The listing a frame's row was read as before, or undefined. A row reads a little differently
+// from frame to frame, so a close name at the same amount and price is the same listing. But two
+// rows of one frame are never one listing (taken: the listings this frame's rows already are,
+// and mergeCopies has joined the identical ones), and neither are two whole real names. Before
+// (Nov 12), a shop's Topwear and Bottomwear DEF Scroll: Greater, both 1 for 1,999, were one
+// Topwear line, and it was saved after one frame, before the seller was read twice, because
+// each frame counted as two reads.
+function listingFor(row, known, taken = new Set()) {
+  const whole = r => r.real && !r.cut && !r.clipped;
+  const fits = o => !taken.has(o) && o.list === row.list && o.qty === row.qty && o.price === row.price && o.sold === row.sold;
+  const close = o => !(whole(o) && whole(row))
+    && (sim(norm(o.name), norm(row.name)) > 0.75 || ((o.clipped || o.cut) && startsName(o.name, row.name)));
+  return known.find(o => fits(o) && o.name === row.name) ?? known.find(o => fits(o) && close(o));
+}
+
 // Which of the game's inventory tabs an item is in, a group to narrow it by, and what kind of
 // thing it is, all from its item id: the first digit is the tab and the next few the kind.
 // Equipment with no upgrade slots is a Cash Shop look, so it goes under Cash.
@@ -570,4 +585,4 @@ async function api(path, body) {
   return data;
 }
 
-if (typeof module !== 'undefined') module.exports = { SEEN_DAYS, marketState, itemSlug, esc, norm, sim, fmt, chartRange, timeTicks, dateText, whole, sameItem, matchName, statsFit, completeName, sharedStart, startsName, tooltipName, knownTitle, placeRows, tooltipMoved, lineForTooltip, copyKey, mergeCopies, channelFollower, itemFacts, itemKind, passesStats, statBounds, iconTag, iconName, parseGearStats, gearState, STAT_NAMES, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText };
+if (typeof module !== 'undefined') module.exports = { SEEN_DAYS, marketState, itemSlug, esc, norm, sim, fmt, chartRange, timeTicks, dateText, whole, sameItem, matchName, statsFit, completeName, sharedStart, startsName, tooltipName, knownTitle, placeRows, tooltipMoved, lineForTooltip, copyKey, mergeCopies, listingFor, channelFollower, itemFacts, itemKind, passesStats, statBounds, iconTag, iconName, parseGearStats, gearState, STAT_NAMES, agoText, countRead, mostRead, isSameShop, tierFromIcon, fullScrollName, parseMap, parseFmRoom, whereText };

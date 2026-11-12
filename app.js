@@ -155,9 +155,9 @@ function applyScan(res, at = Date.now()) {
     });
   }
   const bySlot = []; // the listing read in each visible row of the shop
+  const taken = new Set(); // the listings this frame's rows already are
   for (const row of mergeCopies(rows)) {
-    let old = session.rows.find(o => o.list === row.list && o.qty === row.qty && o.price === row.price && o.sold === row.sold &&
-      (sim(norm(o.name), norm(row.name)) > 0.75 || ((o.clipped || o.cut) && startsName(o.name, row.name))));
+    let old = listingFor(row, session.rows, taken);
     if (!old) {
       session.rows.push(old = { ...row, reads: 1, saved: false });
     } else {
@@ -167,6 +167,7 @@ function applyScan(res, at = Date.now()) {
       if (cleaner) Object.assign(old, { name: row.name, raw: row.raw, real: row.real, cut: false, clipped: false, reads: 1 });
       if (old.reads >= READS_TO_SAVE) saveRow(old);
     }
+    taken.add(old);
     old.seenAt = now; // on screen in this frame, see npcRows
     for (const r of rows) if (copyKey(r) === copyKey(row)) bySlot[r.slot] = old;
   }

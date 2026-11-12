@@ -7,6 +7,26 @@ const os = require('os');
 const path = require('path');
 const { readSettings, saveSettings, SETTINGS } = require('../serve.js');
 
+test('a row is the listing it was read as before, but never another real item or another row of its frame', () => {
+  const { listingFor } = require('../pricing.js');
+  const row = (name, extra = {}) => ({ list: 'shop', name, qty: 1, price: 1999, sold: false, real: true, cut: false, clipped: false, ...extra });
+  const top = row('Topwear DEF Scroll: Greater'), bottom = row('Bottomwear DEF Scroll: Greater');
+  assert.equal(listingFor(bottom, [top]), undefined, 'two real items at one price are two listings');
+  assert.equal(listingFor(row('Bottomwear DEF Scroll: Greater'), [top, bottom]), bottom);
+  // a misread, or a cut-off read, of the same row still joins it
+  const misread = row('Topwear DEF Scro1l: Greater', { real: false });
+  assert.equal(listingFor(misread, [top]), top);
+  const cut = row('Topwear DEF Scr', { real: false, cut: true });
+  assert.equal(listingFor(top, [cut]), cut);
+  assert.equal(listingFor(row('Topwear DEF Scroll: Greater', { price: 2999 }), [top]), undefined, 'another price');
+  // two rows of one frame are never the same listing, however alike they read
+  const taken = new Set([top]);
+  assert.equal(listingFor(misread, [top], taken), undefined);
+  // the exact name wins over a close one that comes first
+  const near = row('Bottomwear DEF Scro1l: Greater', { real: false });
+  assert.equal(listingFor(bottom, [near, bottom]), bottom);
+});
+
 test('corrects misreads', () => {
   for (const [read, real] of [['Crosshow', 'Crossbow'], ['NMagic Potion', 'Magic Potion'], ['Magic Potion o', 'Magic Potion'], ['MagicPotion', 'Magic Potion']]) {
     assert.ok(sameItem(read, real), `${read} -> ${real}`);
