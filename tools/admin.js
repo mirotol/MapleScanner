@@ -7,6 +7,8 @@
 //   node tools/admin.js delete-listing '{"id": 123}'
 //   node tools/admin.js delete-item '{"name": "Red Potion"}'
 //   node tools/admin.js block '{"uploader": 7}'                      and remove what only it reported
+//   node tools/admin.js export '{"table": "reports", "after": 0}'    a page of every listing or report
+//   node tools/shadow.js                                             measures the anti-fake rules (trust.js)
 const [action, json = '{}'] = process.argv.slice(2);
 const url = process.env.CLOUD_URL, token = process.env.MAPLE_ADMIN_TOKEN;
 if (!action || !url || !token) {

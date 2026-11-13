@@ -127,6 +127,42 @@ test('uploads need a well-formed install key, and each install that saw a listin
   assert.ok(keys.every(k => /^[0-9a-f]{64}$/.test(k) && k !== KEY_A && k !== KEY_B), 'only a hash of the key is kept');
 });
 
+test('a report keeps when the server first got it, which a later report or a backdated scan time does not change', async () => {
+  const w = worker();
+  const before = Date.now();
+  await w.upload([shop('Red Potion', 'a', 50, { at: before - DAY })]);
+  const [{ received, firstSeen }] = (await w.admin('export', { table: 'reports' })).body.rows;
+  assert.ok(received >= before, 'arrival is the server time');
+  assert.ok(firstSeen < before, 'the scan time is kept as the app said');
+  await new Promise(r => setTimeout(r, 5));
+  await w.upload([shop('Red Potion', 'a', 50)]);
+  assert.equal((await w.admin('export', { table: 'reports' })).body.rows[0].received, received);
+});
+
+test('the admin export pages through every listing and report, older than 14 days too', async () => {
+  const w = worker({ syncPage: 2 });
+  const old = Date.now() - 30 * DAY;
+  await w.admin('import', { rows: [{ list: 'shop', name: 'Red Potion', seller: 'old', qty: 1, price: 40, firstSeen: old, lastSeen: old }] });
+  await w.upload([shop('Red Potion', 'a', 50), shop('Red Potion', 'b', 51)]);
+  await w.upload([shop('Red Potion', 'a', 50)], KEY_B);
+  const all = async table => {
+    const rows = [];
+    for (let after = 0, more = true; more;) {
+      const page = (await w.admin('export', { table, after })).body;
+      rows.push(...page.rows);
+      ({ cursor: after, more } = page);
+    }
+    return rows;
+  };
+  const listings = await all('listings');
+  assert.deepEqual(listings.map(l => l.seller).sort(), ['a', 'b', 'old']);
+  assert.equal(listings[0].name, 'Red Potion');
+  assert.equal((await all('reports')).length, 4);
+  assert.equal((await w.admin('export', { table: 'uploaders' })).status, 400);
+  assert.equal((await w.admin('export', { table: 'reports' }, null)).status, 401);
+  assert.ok((await w.admin('uploaders', {})).body.uploaders.every(u => /^[0-9a-f]{64}$/.test(u.keyHash)));
+});
+
 test('too many uploads from one install are refused', async () => {
   const w = worker();
   w.env.KEY_LIMIT = { limit: async () => ({ success: false }) };

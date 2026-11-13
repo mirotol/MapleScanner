@@ -6,7 +6,8 @@
 //   GET  /v1/history?name=<item>        every listing of one item
 //   Any of the three with &shared      the same, from a copy up to a minute old (the website's way)
 //   POST /v1/listings                   an install's scans: X-Install-Key header, { rows }
-//   POST /v1/admin/...                  the author's fixes, with Authorization: Bearer <ADMIN_TOKEN>
+//   POST /v1/admin/...                  the author's fixes and the shadow-mode export, with
+//                                       Authorization: Bearer <ADMIN_TOKEN>
 const { listingRules } = require('../listing.js');
 const { SEEN_DAYS } = require('../pricing.js');
 
@@ -41,9 +42,9 @@ const UPSERT_LISTING = `
     updated = excluded.updated`;
 
 const UPSERT_REPORT = `
-  INSERT INTO reports (listing_id, uploader_id, first_seen, last_seen)
+  INSERT INTO reports (listing_id, uploader_id, first_seen, last_seen, received)
   VALUES ((SELECT l.id FROM listings l JOIN items i ON i.id = l.item_id
-           WHERE i.name = ?1 AND l.seller = ?2 AND l.qty = ?3 AND l.price = ?4 AND l.sold = ?5), ?6, ?7, ?8)
+           WHERE i.name = ?1 AND l.seller = ?2 AND l.qty = ?3 AND l.price = ?4 AND l.sold = ?5), ?6, ?7, ?8, ?9)
   ON CONFLICT (listing_id, uploader_id) DO UPDATE SET
     first_seen = MIN(first_seen, excluded.first_seen), last_seen = MAX(last_seen, excluded.last_seen)`;
 
@@ -70,7 +71,7 @@ function createApi(itemList, { syncPage = SYNC_PAGE } = {}) {
   const saveListing = (db, l, uploaderId, firstSeen, lastSeen, now) => [
     db.prepare('INSERT INTO items (name, added) VALUES (?1, ?2) ON CONFLICT (name) DO NOTHING').bind(l.name, now),
     db.prepare(UPSERT_LISTING).bind(l.name, l.seller, l.qty, l.price, l.sold, l.copies, firstSeen, lastSeen, l.channel, l.map, l.room, l.shop, l.stats, now),
-    db.prepare(UPSERT_REPORT).bind(l.name, l.seller, l.qty, l.price, l.sold, uploaderId, firstSeen, lastSeen),
+    db.prepare(UPSERT_REPORT).bind(l.name, l.seller, l.qty, l.price, l.sold, uploaderId, firstSeen, lastSeen, now),
   ];
 
   async function uploaderFor(db, key, now) {
@@ -197,14 +198,15 @@ function createApi(itemList, { syncPage = SYNC_PAGE } = {}) {
             last_seen = MAX(last_seen, excluded.last_seen), channel = COALESCE(excluded.channel, channel),
             map = COALESCE(excluded.map, map), room = COALESCE(excluded.room, room), shop = COALESCE(excluded.shop, shop),
             stats = COALESCE(excluded.stats, stats), updated = excluded.updated`).bind(to, from.id, now),
-        db.prepare(`INSERT INTO reports (listing_id, uploader_id, first_seen, last_seen)
-          SELECT n.id, r.uploader_id, r.first_seen, r.last_seen FROM reports r
+        db.prepare(`INSERT INTO reports (listing_id, uploader_id, first_seen, last_seen, received)
+          SELECT n.id, r.uploader_id, r.first_seen, r.last_seen, r.received FROM reports r
           JOIN listings o ON o.id = r.listing_id
           JOIN listings n ON n.item_id = (SELECT id FROM items WHERE name = ?1)
             AND n.seller = o.seller AND n.qty = o.qty AND n.price = o.price AND n.sold = o.sold
           WHERE o.item_id = ?2
           ON CONFLICT (listing_id, uploader_id) DO UPDATE SET
-            first_seen = MIN(first_seen, excluded.first_seen), last_seen = MAX(last_seen, excluded.last_seen)`).bind(to, from.id),
+            first_seen = MIN(first_seen, excluded.first_seen), last_seen = MAX(last_seen, excluded.last_seen),
+            received = MIN(COALESCE(received, excluded.received), COALESCE(excluded.received, received))`).bind(to, from.id),
         ...removeListings(db, 'item_id = ?1', from.id, now),
         db.prepare('DELETE FROM items WHERE id = ?1').bind(from.id),
       ]);
@@ -223,9 +225,27 @@ function createApi(itemList, { syncPage = SYNC_PAGE } = {}) {
       return { ok: true };
     },
 
+    // keyHash lets the admin find their own install, by hashing the key in their install.json.
     async uploaders(env) {
-      const { results } = await env.DB.prepare('SELECT id, created, last_upload AS lastUpload, rows, blocked FROM uploaders ORDER BY rows DESC').all();
+      const { results } = await env.DB.prepare('SELECT id, key_hash AS keyHash, created, last_upload AS lastUpload, rows, blocked FROM uploaders ORDER BY rows DESC').all();
       return { uploaders: results };
+    },
+
+    // Every listing (not only the last 14 days) or every report, a page at a time from `after`,
+    // for measuring the anti-fake rules in shadow mode (tools/shadow.js).
+    async export(env, body) {
+      const after = body.after ?? 0;
+      if (!Number.isSafeInteger(after)) throw new HttpError(400, 'The cursor is not valid.');
+      const sql = {
+        listings: `SELECT l.id AS row, ${LISTING_FIELDS}, i.name FROM listings l JOIN items i ON i.id = l.item_id
+          WHERE l.id > ?1 ORDER BY l.id LIMIT ?2`,
+        reports: `SELECT rowid AS row, listing_id AS listing, uploader_id AS uploader, first_seen AS firstSeen, last_seen AS lastSeen, received
+          FROM reports WHERE rowid > ?1 ORDER BY rowid LIMIT ?2`,
+      }[body.table];
+      if (!sql) throw new HttpError(400, 'Name a table: listings or reports.');
+      const { results } = await env.DB.prepare(sql).bind(after, syncPage).all();
+      const last = results[results.length - 1];
+      return { rows: results.map(({ row: _, ...r }) => r), cursor: last ? last.row : after, more: results.length === syncPage };
     },
 
     // Who reported one listing, to judge whether it's real.

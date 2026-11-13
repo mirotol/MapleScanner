@@ -10,7 +10,7 @@
   "scripts": {
     "start": "electron .",
     "serve": "node serve.js",
-    "test": "node --test test/pricing.test.js test/market.test.js test/scanner.test.js test/cloud.test.js test/cloud-client.test.js test/site.test.js test/window-state.test.js",
+    "test": "node --test test/pricing.test.js test/market.test.js test/scanner.test.js test/cloud.test.js test/cloud-client.test.js test/site.test.js test/window-state.test.js test/trust.test.js",
     "items": "node tools/update-items.js",
     "dist": "electron-builder --win nsis --publish never",
     "cloud:dev": "wrangler dev --config cloud/wrangler.jsonc --port 8787",
