@@ -673,9 +673,35 @@ class ShopReader {
     const left = card ? card.x - 13 * scale : box.x, titleX = card ? card.x + card.w : left + 20 * scale;
     const right = next ? next.x - 26 * scale : box.x + box.w;
     const title = clip({ x: titleX, y: titleY, w: right + (next ? 0 : 4 * scale) - titleX, h: 36 * scale }); // a long title reaches the edge
-    const read = cleanName(await this.read(source, img, title, { invert: true, brightOnly: true })).replace(/[\s:.]+$/, '');
-    const plain = cleanName(read.replace(UPGRADES, ''));
-    const name = fullScrollName(plain, null) ?? plain;
+    const asName = text => {
+      const plain = cleanName(cleanName(text).replace(/[\s:.]+$/, '').replace(UPGRADES, ''));
+      return fullScrollName(plain, null) ?? plain;
+    };
+    const names = [asName(await this.read(source, img, title, { invert: true, brightOnly: true }))];
+    // With no dot the title's place is a guess, one line above the icon panel, and two kinds of
+    // card break it (test/pets-*.webp): a long title wraps onto two lines, of which the guess
+    // reads the second (`Boots (+5)`), and a pet has its expiry line between title and icon. So
+    // everything from the tooltip's top to the icon is read too, each line and each pair of
+    // lines (a wrapped title) is a name to try, and the page takes the first real item.
+    if (!card && icon !== null) {
+      // past the glove cursor, which can sit on the top left corner (findCursor: up to 8 + 20 px in)
+      const block = clip({ x: box.x + 28 * scale, y: box.y + 4 * scale, w: box.w - 34 * scale, h: icon - box.y - 6 * scale });
+      if (block.h >= 16 * scale) {
+        const lines = (await this.read(source, img, block, { invert: true, brightOnly: true, psm: 6 })).split('\n')
+          .map(l => l.trim()).filter(l => /[A-Za-z]{3}/.test(l));
+        const expiry = l => /\bUTC\b|Dries\s*Up|Expir/i.test(l);
+        const tries = [];
+        for (let i = 0; i < lines.length; i++) {
+          if (expiry(lines[i])) continue;
+          if (i + 1 < lines.length && !expiry(lines[i + 1])) tries.push(`${lines[i]} ${lines[i + 1]}`);
+          tries.push(lines[i]);
+        }
+        // a wrapped pair first, so `Orange Whitebottom` + `Boots` beats `Boots` alone
+        names.unshift(...tries.sort((a, b) => b.length - a.length).map(asName));
+        if (expiry(names[names.length - 1])) names.pop(); // the guess that read a pet's expiry line
+      }
+    }
+    const name = names.find(n => n.length >= 3) ?? names[0] ?? '';
     // the lower part of a tooltip can be over something that hides its colour, so read past the box
     const body = clip({ x: left + 8 * scale, y: titleY + 38 * scale, w: right - left - 16 * scale, h: Math.max(box.h, TIP_READ_H * scale) });
     const text = await this.read(source, img, body, { invert: true, psm: 6, scale: 3, whiteOnly: TIP_TEXT });
@@ -688,7 +714,7 @@ class ShopReader {
     const room = (img.height - titleY) / scale - (18 + TIP_FIRST_LINE + lines * TIP_LINE);
     // where it was read from, for recordings: a misread title is usually a strip in the wrong place
     const where = { dot: card && { x: card.x, y: card.y, w: card.w, h: card.h }, title, scale: +scale.toFixed(3), room: Math.round(room) };
-    return { name, stats, room, where };
+    return { name, names, stats, room, where };
   }
 
   async readMap(source, img) {

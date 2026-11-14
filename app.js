@@ -110,7 +110,9 @@ function applyScan(res, at = Date.now()) {
   if (res?.place) { channels.arrived(res.place, at); place = res.place; }
   channel = channels.channel;
   const tip = res?.tooltip;
-  const real = tip?.name ? knownTitle(tip.name, knownName) : null, tipName = real ?? tip?.name;
+  // a tooltip with no title dot gives several names to try (readTooltip), the first real one wins
+  const real = tip?.name ? (tip.names ?? [tip.name]).reduce((hit, n) => hit ?? (n ? knownTitle(n, knownName) : null), null) : null;
+  const tipName = real ?? tip?.name;
   // A misread title still helps match the shop row under it, but only a real item gets a card.
   // The game's own cursor, when it was found, gives the row even if the tooltip was moved.
   const pushed = !!tipName && !res?.cursor && tooltipMoved(tip?.room, !real || facts.described(tipName));
