@@ -1,7 +1,7 @@
 // Run with: node --test test/market.test.js
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, sameStats, closestGear } = require('../market.js');
+const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, soldSince, dailyPrices, steppedPrices, sameStats, closestGear } = require('../market.js');
 
 const NOW = Date.UTC(2026, 10, 6, 12);
 const DAY = 864e5;
@@ -437,13 +437,13 @@ test('the trend has a point for each day with 5 sellers over the 3 days to it', 
     vote(345, 'Alder', true, NOW), vote(350, 'Fir', true, NOW),
     ...[400, 380, 360, 370, 390].map((u, i) => vote(u, ['Gum', 'Hazel', 'Ivy', 'Juniper', 'Kapok'][i], false, NOW)), vote(9999999, 'Troll', false, NOW),
   ];
-  const days = dailyPrices(votes, { dayStart: day });
+  const days = dailyPrices(votes, { dayStart: day, now: NOW });
   assert.deepEqual(days.map(d => d.day), [day(NOW - 2 * DAY), day(NOW)]);
-  assert.deepEqual(days[0].sold, { price: 320, sellers: 5 });
+  assert.deepEqual(days[0].sold, { price: 320, sellers: 5, low: 310, high: 330 });
   assert.equal(days[0].ask, null); // no asks: a gap, not a guess
   // Today counts the 3 days to it. Alder's two sales are one vote, at their lower middle (300),
   // so 300, 310, 320, 330, 340, 350 gives 320
-  assert.deepEqual(days[1].sold, { price: 320, sellers: 6 });
+  assert.deepEqual(days[1].sold, { price: 320, sellers: 6, low: 310, high: 340 });
   // Asks lean low, so the troll doesn't lift the line
   assert.deepEqual(days[1].ask, { price: 370, sellers: 6 });
 });
@@ -451,6 +451,45 @@ test('the trend has a point for each day with 5 sellers over the 3 days to it', 
 test('a day with under 5 sellers has no trend point', () => {
   const days = dailyPrices([...five.slice(0, 4).map((s, i) => vote(300 + i, s, true)), vote(320, '', true)], { dayStart: t => Math.floor(t / DAY) * DAY });
   assert.equal(days[0].sold, null);
+});
+
+test("today's trend point is the usual price, when that comes from 3 days of sales", () => {
+  const day = t => Math.floor(t / DAY) * DAY;
+  // Three dear sales 2.6 days ago are inside the usual price's 72 hours but before the midnight
+  // 3 calendar days would start at. Counted that way the line ended at 15K under a usual 16K
+  const votes = [
+    ...[25e3, 25e3, 25e3].map((u, i) => vote(u, five[i], true, NOW - 2.6 * DAY)),
+    ...[14e3, 15e3, 15e3, 16e3, 17e3].map((u, i) => vote(u, ['Cedar', 'Dogwood', 'Elm', 'Fir', 'Gum'][i], true, NOW - (i % 2) * DAY)),
+    vote(30e3, '', true), // unknown sellers are one vote together, as in the usual price
+  ];
+  const usual = at(votes);
+  assert.equal(usual.basis, 'sold');
+  assert.equal(usual.days, 3);
+  const today = dailyPrices(votes, { dayStart: day, now: NOW }).at(-1);
+  assert.equal(today.sold.price, usual.price);
+  assert.equal(today.sold.sellers, 7); // named ones only
+  // An earlier day still counts the 3 calendar days to its end: the three dear sales and two
+  // of yesterday's
+  const before = dailyPrices(votes, { dayStart: day, now: NOW }).find(d => d.day === day(NOW - DAY));
+  assert.deepEqual(before.sold, { price: 25e3, sellers: 5, low: 16e3, high: 25e3 });
+});
+
+test('a short trend has a point for each step something was seen in, from the time before it', () => {
+  const HOUR = 36e5;
+  const votes = [
+    ...[300, 310, 320, 330, 340].map((u, i) => vote(u, five[i], true, NOW - 5 * HOUR)),
+    ...[400, 410, 420, 430, 440].map((u, i) => vote(u, ['Fir', 'Gum', 'Hazel', 'Ivy', 'Juniper'][i], true, NOW - 0.5 * HOUR)),
+    vote(999, 'Kapok', true, NOW + HOUR), // a scan time after now is left out
+  ];
+  const points = steppedPrices(votes, { now: NOW, step: 2 * HOUR, look: 6 * HOUR });
+  // Nothing was seen in the step between them, so it has no point
+  assert.deepEqual(points.map(p => p.t), [NOW - 4 * HOUR, NOW]);
+  assert.deepEqual(points[0].sold, { price: 320, sellers: 5, low: 310, high: 330 });
+  // The newest point looks back 6 hours, so it has all ten sellers
+  assert.deepEqual(points[1].sold, { price: 340, sellers: 10, low: 320, high: 420 });
+  // A shorter look back leaves the older five out, and 4 sellers are no point
+  assert.equal(steppedPrices(votes, { now: NOW, step: 2 * HOUR, look: 2 * HOUR })[1].sold.price, 420);
+  assert.equal(steppedPrices(votes.slice(1, 5), { now: NOW, step: 2 * HOUR, look: 6 * HOUR })[0].sold, null);
 });
 
 test('an ask is only tied to a sale by what is sure', () => {

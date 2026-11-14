@@ -5,7 +5,7 @@ const HOUR_MS = 36e5, DAY_MS = 864e5;
 const NOTE_MS = 6000;
 const SHOW_ROWS = 50; // listings in the card before "Show all"
 // The card's time chips, and the words for them in a label
-const WINDOWS = [['1h', HOUR_MS, 'hour'], ['6h', 6 * HOUR_MS, '6 hours'], ['24h', DAY_MS, '24 hours'], ['3 days', 3 * DAY_MS, '3 days'], ['Week', 7 * DAY_MS, 'week'], ['All', Infinity, 'all time']];
+const WINDOWS = [['1h', HOUR_MS, 'hour'], ['6h', 6 * HOUR_MS, '6 hours'], ['24h', DAY_MS, '24 hours'], ['3 days', 3 * DAY_MS, '3 days'], ['Week', 7 * DAY_MS, 'week'], ['30 days', 30 * DAY_MS, '30 days']];
 const TABS = [['all', 'All'], ['equip', 'Equip'], ['use', 'Use'], ['setup', 'Setup'], ['etc', 'Etc'], ['cash', 'Cash']];
 const STAT_LABELS = { attack: 'ATT', magic: 'M.ATT', wdef: 'W.Def', mdef: 'M.Def', str: 'STR', dex: 'DEX', int: 'INT', luk: 'LUK', hp: 'HP', mp: 'MP', accuracy: 'Acc', avoid: 'Avoid', speed: 'Speed', jump: 'Jump', crit: 'Crit', critDamage: 'Crit dmg', slots: 'Slots left' };
 
@@ -205,9 +205,6 @@ function renderList() {
 // The card's listings as votes for market.js (historyVotes there)
 const votesOf = (name, history) => historyVotes(name, history, facts);
 
-// Dots or Trend, kept while moving from item to item
-let chartView = 'dots';
-
 const filterOn = f => !!f && (f.clean || Object.keys(f.range).length > 0);
 const showing = (v, show) => (show === 'sold' ? v.sold : !v.gone && (show === 'all' || !v.sold));
 
@@ -217,8 +214,8 @@ async function openCard(name) {
   // Open on asks, unless there are none, and on the shortest time from 24 hours up that has some
   const show = votes.some(v => showing(v, 'listed')) ? 'listed' : 'all';
   const win = WINDOWS.slice(2).find(([, ms]) => votes.some(v => showing(v, show) && Date.now() - v.t <= ms))?.[1] ?? DAY_MS;
-  const trend = chartView === 'trend';
-  card = { name, history, win: trend ? Math.max(win, 7 * DAY_MS) : win, show: trend ? 'all' : show, sortBy: null, filter: null, statsOpen: false, all: false };
+  lastChart = null; // an opened card always draws its chart in
+  card = { name, history, win, show, sortBy: null, filter: null, statsOpen: false, all: false };
   renderCard(true);
   // An opening dialog focuses its first button, the ×, which then wore the focus ring as if
   // chosen (Nov 12). The card takes the focus itself, and Tab still goes to the × first.
@@ -241,7 +238,7 @@ function statChips(name, stats) {
 const PHONE = matchMedia('(max-width: 560px)');
 PHONE.addEventListener('change', () => renderCard());
 
-// The frame both chart views share: a price scale fitted to `prices` (chartRange), round time
+// The chart's frame: a price scale fitted to `prices` (chartRange), round time
 // marks (timeTicks), and the usual price and what an NPC pays as lines when they're on it.
 function chartFrame(name, prices, usual, span) {
   const now = Date.now(), npc = facts.npc(name);
@@ -262,61 +259,113 @@ function chartFrame(name, prices, usual, span) {
   if (npcShown) svg += `<line class="npc" x1="${L}" x2="${W - R}" y1="${y(npc)}" y2="${y(npc)}"/>`;
   if (usual?.price != null) svg += `<line class="usual" x1="${L}" x2="${W - R}" y1="${y(usual.price)}" y2="${y(usual.price)}"/>`;
   const lines = [usual?.price != null ? '<span><i class="l-usual"></i>Usual price</span>' : '', npcShown ? '<span><i class="l-npc"></i>NPC pays</span>' : ''].join('');
-  const draw = (legend, marks) => `<div class="legend">${legend}${lines}</div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Prices over time">${svg}${marks}</svg>`;
-  return { x, y, lo, hi, top: T, bottom: H - B, draw };
+  const draw = (legend, marks) => `<div class="legend">${legend}${lines}</div><div class="plot"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Prices over time">${svg}${marks}</svg><div class="chart-tip" hidden></div></div>`;
+  return { x, y, lo, hi, top: T, bottom: H - B, width: W, height: H, draw };
 }
 
-// Every listing as a dot. High asks and scrolled copies stay in the table: past the scale they
-// sit on its top or bottom edge, so normal prices aren't squashed flat. A busy item's dots are
-// smaller and see-through, so where most prices are still shows through (Iron Ore, Nov 10).
-function chartHtml(name, votes, usual, win) {
-  if (!votes.length) return '<div class="chart-empty">Nothing in this time and these filters.</div>';
-  const span = Number.isFinite(win) ? win : Math.max(HOUR_MS, Date.now() - Math.min(...votes.map(v => v.t)));
-  const f = chartFrame(name, votes.map(v => v.u), usual, span);
-  const r = votes.length > 150 ? 3 : 4;
-  let marks = '', over = 0, under = 0;
-  for (const v of votes) {
-    const cx = +f.x(v.t).toFixed(1), tip = `<title>${v.sold ? 'Sold' : 'Asking'} ${fmt(v.u)}${whereText(v) ? `, ${esc(whereText(v))}` : ''}, ${ago(v.t)}</title>`;
-    if (v.u > f.hi) { over++; marks += `<path class="over" d="M${cx - 4} ${f.top + 6} L${cx} ${f.top} L${cx + 4} ${f.top + 6} Z">${tip}</path>`; continue; }
-    if (v.u < f.lo) { under++; marks += `<path class="over" d="M${cx - 4} ${f.bottom - 6} L${cx} ${f.bottom} L${cx + 4} ${f.bottom - 6} Z">${tip}</path>`; continue; }
-    const cy = f.y(v.u);
-    marks += v.sold
-      ? `<rect class="sold" x="${cx - r + 0.5}" y="${cy - r + 0.5}" width="${2 * r - 1}" height="${2 * r - 1}" transform="rotate(45 ${cx} ${cy})">${tip}</rect>`
-      : `<circle class="ask" cx="${cx}" cy="${cy}" r="${r}">${tip}</circle>`;
-  }
-  const prices = votes.map(v => v.u);
-  const legend = [
-    votes.some(v => !v.sold) ? '<span><i class="l-ask"></i>Asking</span>' : '',
-    votes.some(v => v.sold) ? '<span><i class="l-sold"></i>Sold</span>' : '',
-    over ? `<span>▲ ${over} above ${fmt(f.hi)}, ${over === 1 ? 'at' : 'up to'} ${fmt(Math.max(...prices))}</span>` : '',
-    under ? `<span>▼ ${under} below ${fmt(f.lo)}, ${under === 1 ? 'at' : 'down to'} ${fmt(Math.min(...prices))}</span>` : '',
-  ].join('');
-  return `<div class="${votes.length > 150 ? 'dense' : ''}">${f.draw(legend, marks)}</div>`;
-}
+// The card's one chart (Nov 14, when the view with every listing as a dot went: the table under
+// it has them all). What sold and what was asked over time, so a slow rise shows. Straight
+// lines between points, because a smoothed curve draws prices nobody saw, broken where 3 points'
+// time passes with none. The lines follow Asking, Sold and Both like the table does, and the
+// shaded band, where the middle half of sellers sold, goes with the sold line. With no point to
+// draw there's no chart, only a line saying so.
+// The chart covers the time chip picked. From a week up there's a point a day, from the 3 days
+// to it (dailyPrices in market.js), the usual price's own window. Under a week that would be a
+// dot or two, so points come closer and look back less far (steppedPrices): how often, how far
+// back, and that in words. Each point still needs 5 named sellers.
+const MIN_MS = 6e4;
+const TREND_STEPS = new Map([
+  [HOUR_MS, [10 * MIN_MS, 30 * MIN_MS, '30 minutes']],
+  [6 * HOUR_MS, [30 * MIN_MS, 2 * HOUR_MS, '2 hours']],
+  [DAY_MS, [2 * HOUR_MS, 6 * HOUR_MS, '6 hours']],
+  [3 * DAY_MS, [6 * HOUR_MS, DAY_MS, '24 hours']],
+]);
+const clockText = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const TREND_LINES = [['sold', 'Sold, middle of sales', 'sold'], ['ask', 'Asking, low end', 'listed']];
+let trend = null; // what the chart on show was drawn from, for its tooltip (wireChart)
+// What the last chart drawn showed. The card is drawn again for every click in it, and the
+// chart only draws itself in (.fresh in prices.html) when it's another chart than before: a new
+// item, time, Asking or Sold, or Stats filter, not a sort of the table under it.
+let lastChart = null;
 
-// What sold and what was asked, day by day (dailyPrices in market.js), so a slow rise shows.
-// Straight lines between days, because a smoothed curve draws prices nobody saw, broken where
-// days pass with no point. Each point needs 5 sellers over the 3 days to it.
-function trendHtml(name, kept, usual, win, show) {
-  const now = Date.now();
-  if (win < 3 * DAY_MS) return '<div class="chart-empty">A trend needs 3 days or more. Pick 3 days, Week or All.</div>';
-  const span = Number.isFinite(win) ? win : Math.max(3 * DAY_MS, now - Math.min(...kept.map(v => v.t)));
-  const days = dailyPrices(kept).filter(d => now - d.day <= span);
-  const series = [['sold', 'Sold, middle of sales', show !== 'listed'], ['ask', 'Asking, low end', show !== 'sold']].filter(([, , on]) => on);
-  const points = series.map(([key]) => days.filter(d => d[key]).map(d => ({ t: Math.min(now, d.day + DAY_MS / 2), day: d.day, ...d[key] })));
-  if (!points.some(p => p.length)) return '<div class="chart-empty">No day has 5 sellers yet, so there\'s no trend to draw. Each point needs 5 sellers over 3 days.</div>';
-  const f = chartFrame(name, points.flat().map(p => p.price), usual, span);
-  let marks = '';
-  series.forEach(([key, label], i) => {
-    let path = '';
-    points[i].forEach((p, j) => { path += `${j && p.day - points[i][j - 1].day <= 3 * DAY_MS ? 'L' : 'M'}${f.x(p.t).toFixed(1)} ${f.y(p.price)}`; });
-    marks += `<path class="trend ${key}" d="${path}"/>`;
-    for (const p of points[i]) {
-      marks += `<circle class="trend-dot ${key}" cx="${f.x(p.t).toFixed(1)}" cy="${f.y(p.price)}" r="3"><title>${dateText(p.day)}: ${label.toLowerCase()} ${fmt(p.price)}, ${p.sellers} sellers over 3 days</title></circle>`;
+function trendHtml(name, votes, usual, win, show) {
+  const now = Date.now(), span = win;
+  const [step, look, words] = TREND_STEPS.get(win) ?? [DAY_MS, 3 * DAY_MS, '3 days'];
+  const points = TREND_STEPS.has(win)
+    ? steppedPrices(votes, { now, step, look }).map(p => ({ ...p, label: `${dateText(p.t)}, ${clockText(p.t)}` }))
+    : dailyPrices(votes, { now }).map(d => ({ ...d, t: Math.min(now, d.day + DAY_MS / 2), label: dateText(d.day) }));
+  const series = TREND_LINES.filter(([, , only]) => show === 'all' || show === only);
+  const shown = points.filter(p => now - p.t <= span && series.some(([key]) => p[key]));
+  trend = null;
+  const drawn = [name, win, show, votes.length].join('|'), fresh = drawn !== lastChart;
+  lastChart = drawn;
+  if (!shown.length) return `<p class="quiet no-trend">Not enough sellers for a trend yet. A point needs 5 of them within ${words}.</p>`;
+  const withSold = series.some(([key]) => key === 'sold');
+  const f = chartFrame(name, shown.flatMap(d => series.flatMap(([key]) => (key === 'sold' ? [d.sold?.price, d.sold?.low, d.sold?.high] : [d.ask?.price]))).filter(p => p != null), usual, span);
+  const joined = (a, b) => b.t - a.t <= 3 * step + HOUR_MS; // an hour over, for the day the clocks change
+  let marks = '', band = false;
+  // The band first, so the lines are drawn over it: one shape for each unbroken run of points
+  const sold = withSold ? shown.filter(d => d.sold) : [];
+  for (let i = 0; i < sold.length;) {
+    let j = i;
+    while (j + 1 < sold.length && joined(sold[j], sold[j + 1])) j++;
+    const run = sold.slice(i, j + 1);
+    if (run.length > 1 && run.some(d => d.sold.high > d.sold.low)) {
+      band = true;
+      const edge = (list, key) => list.map(d => `${f.x(d.t).toFixed(1)} ${f.y(d.sold[key])}`).join(' L');
+      marks += `<path class="trend-band" d="M${edge(run, 'high')} L${edge([...run].reverse(), 'low')} Z"/>`;
     }
-  });
-  const legend = series.map(([key, label]) => `<span><i class="l-trend ${key}"></i>${label}</span>`).join('');
-  return f.draw(legend, marks);
+    i = j + 1;
+  }
+  for (const [key] of series) {
+    const points = shown.filter(d => d[key]);
+    let path = '';
+    points.forEach((p, j) => { path += `${j && joined(points[j - 1], p) ? 'L' : 'M'}${f.x(p.t).toFixed(1)} ${f.y(p[key].price)}`; });
+    marks += `<path class="trend ${key}" pathLength="1" d="${path}"/>`;
+    for (const p of points) marks += `<circle class="trend-dot ${key}" cx="${f.x(p.t).toFixed(1)}" cy="${f.y(p[key].price)}" r="3"/>`;
+  }
+  marks += `<line class="trend-guide" y1="${f.top}" y2="${f.bottom}" visibility="hidden"/>`;
+  const legend = series.filter(([key]) => shown.some(d => d[key])).map(([key, label]) => `<span><i class="l-trend ${key}"></i>${label}</span>`).join('')
+    + (band ? '<span><i class="l-band"></i>Half of the sellers sold in here</span>' : '');
+  trend = { days: shown.map(d => ({ ...d, x: f.x(d.t) })), series: series.map(([key]) => key), width: f.width, words };
+  return `<div class="chart${fresh ? ' fresh' : ''}">${f.draw(legend, marks)}</div>`;
+}
+
+// One point of the trend, for the tooltip, with the time its sellers were counted over.
+function tipHtml(d) {
+  const row = (key, label, p, more) => (p && trend.series.includes(key)
+    ? `<span class="row"><i class="l-trend ${key}"></i>${label} <b>${fmt(p.price)}</b></span><small>${more}${p.sellers} sellers in ${trend.words}</small>` : '');
+  return `<b class="day">${d.label}</b>${
+    row('sold', 'Sold', d.sold, d.sold && d.sold.high > d.sold.low ? `${fmt(d.sold.low)} to ${fmt(d.sold.high)}, ` : '')}${
+    row('ask', 'Asking', d.ask, '')}`;
+}
+
+// A small tooltip follows the pointer, or a tap, as on stock charts: the nearest day with a
+// point gets a thin line and its figures beside it. Placed by percentages of the chart, so the
+// page's zoom (Text size) doesn't move it. The card isn't drawn again for it.
+function wireChart() {
+  const plot = $('card').querySelector('.chart .plot');
+  if (!plot || !trend) return;
+  const svg = plot.querySelector('svg'), guide = svg.querySelector('.trend-guide'), tip = plot.querySelector('.chart-tip');
+  const hide = () => { tip.hidden = true; guide.setAttribute('visibility', 'hidden'); };
+  const follow = e => {
+    const box = svg.getBoundingClientRect();
+    const x = (e.clientX - box.left) / box.width * trend.width;
+    const d = trend.days.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a));
+    guide.setAttribute('x1', d.x.toFixed(1)); guide.setAttribute('x2', d.x.toFixed(1)); guide.setAttribute('visibility', 'visible');
+    tip.innerHTML = tipHtml(d);
+    tip.hidden = false;
+    // beside the line, on the side with more room, and level with the pointer
+    // and never past the chart's bottom, which is short in a narrow window
+    const room = Math.max(0, 1 - tip.offsetHeight / plot.offsetHeight);
+    const left = d.x / trend.width, top = Math.min(Math.max((e.clientY - box.top) / box.height, 0), room);
+    tip.classList.toggle('flip', left > 0.55);
+    tip.style.left = `${(left * 100).toFixed(2)}%`;
+    tip.style.top = `${(top * 100).toFixed(2)}%`;
+  };
+  svg.addEventListener('pointermove', follow);
+  svg.addEventListener('pointerdown', follow);
+  svg.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hide(); });
 }
 
 function statsHtml(name, votes) {
@@ -333,7 +382,7 @@ function statsHtml(name, votes) {
     <div class="pop"${card.statsOpen ? '' : ' hidden'}>
       <label class="toggle"><span>Clean only<small>No upgrade slot used</small></span><input type="checkbox" role="switch" data-do="clean"${f.clean ? ' checked' : ''}></label>
       ${read.length ? ranges : '<p class="quiet">No stats read yet. Hover gear in a shop and its stats are saved.</p>'}
-      <div class="foot"><span>${plural(votes.filter(v => !v.stats && Date.now() - v.t <= card.win).length, 'listing')} without read stats, ${card.win === Infinity ? 'ever' : 'in this time'}</span><button data-do="clearStats">Clear</button></div>
+      <div class="foot"><span>${plural(votes.filter(v => !v.stats && Date.now() - v.t <= card.win).length, 'listing')} without read stats, in this time</span><button data-do="clearStats">Clear</button></div>
     </div></div>`;
 }
 
@@ -364,7 +413,7 @@ function cardHtml() {
   const usual = marketFor(kept);
   const now = Date.now(), inWin = kept.filter(v => now - v.t <= win);
   const winWords = WINDOWS.find(([, ms]) => ms === win)[2];
-  const inLast = win === Infinity ? 'ever' : `last ${winWords}`;
+  const inLast = `last ${winWords}`;
   const low = cheaperElsewhere(kept, Infinity, { within: win });
   const lastSold = kept.filter(v => v.sold).sort((a, b) => b.t - a.t)[0];
   const seen = inWin.map(v => v.u);
@@ -415,11 +464,10 @@ function cardHtml() {
       <div class="card-controls">
         <div class="seg" role="group" aria-label="Time">${WINDOWS.map(([label, ms]) => `<button class="${ms === win ? 'on' : ''}" data-win="${ms}">${label}</button>`).join('')}</div>
         <div class="seg" role="group" aria-label="Which listings">${[['listed', 'Asking'], ['sold', 'Sold'], ['all', 'Both']].map(([key, label]) => `<button class="${key === show ? 'on' : ''}" data-show="${key}">${label}</button>`).join('')}</div>
-        <div class="seg" role="group" aria-label="Chart">${[['dots', 'Dots'], ['trend', 'Trend']].map(([key, label]) => `<button class="${key === chartView ? 'on' : ''}" data-view="${key}">${label}</button>`).join('')}</div>
         <span class="spacer"></span>${gear ? statsHtml(name, all) : ''}
       </div>
       ${leftOut ? `<p class="left-out">${plural(leftOut, 'listing')} without read stats ${leftOut === 1 ? 'is' : 'are'} left out while Stats is on.</p>` : ''}
-      <div class="chart">${chartView === 'trend' ? trendHtml(name, kept, usual, win, show) : chartHtml(name, list, usual, win)}</div>
+      ${trendHtml(name, kept, usual, win, show)}
       <div class="rows-head"><h3>${heading}</h3><span>${plural(list.length, 'listing')}, ${inLast}${order === 'price' ? ', cheapest first' : ', newest first'}</span>
         <div class="seg phone-sort" role="group" aria-label="Order">${[['when', 'Newest'], ['price', 'Cheapest']].map(([key, label]) => `<button class="${key === order ? 'on' : ''}" data-sort="${key}">${label}</button>`).join('')}</div></div>
       ${list.length ? rowsHtml(name, list, order) : '<p class="quiet">Nothing in this time and these filters.</p>'}
@@ -434,6 +482,7 @@ function renderCard(fresh = false) {
   const scroll = fresh ? 0 : scroller()?.scrollTop ?? 0;
   $('card').innerHTML = cardHtml();
   scroller().scrollTop = scroll;
+  wireChart();
 }
 
 // Every item ever listed comes from the shared price database (`full`), with the recent listings
@@ -550,19 +599,12 @@ let pressedOutside = false;
 cardEl.addEventListener('pointerdown', e => { pressedOutside = e.target === cardEl; });
 cardEl.addEventListener('click', e => {
   if (e.target === cardEl) { if (pressedOutside) closeCard(); return; }
-  const el = e.target.closest('[data-win],[data-show],[data-view],[data-sort],button[data-do]');
+  const el = e.target.closest('[data-win],[data-show],[data-sort],button[data-do]');
   // The Stats panel closes on a click anywhere else in the card
   if (card?.statsOpen && !e.target.closest('.statpop')) { card.statsOpen = false; if (!el) return renderCard(); }
   if (!el) return;
   if (el.dataset.win) { card.win = Number(el.dataset.win); card.all = false; return renderCard(); }
   if (el.dataset.show) { card.show = el.dataset.show; card.sortBy = null; card.all = false; return renderCard(); }
-  if (el.dataset.view) {
-    chartView = el.dataset.view;
-    // A trend needs days, so the 24 h the card opens on becomes a week. It shows sales and asks
-    // together, because the gap between them is what it's for.
-    if (chartView === 'trend') { card.win = Math.max(card.win, 7 * DAY_MS); card.show = 'all'; card.sortBy = null; }
-    return renderCard();
-  }
   if (el.dataset.sort) { card.sortBy = el.dataset.sort; return renderCard(); }
   actions[el.dataset.do]?.(el);
 });

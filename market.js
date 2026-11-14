@@ -1,6 +1,6 @@
 // Turns raw listings into a market summary and a verdict on one listing. Pure, so it can be
 // tested in Node and shared by the pages. See "Average or median" in CLAUDE.md for the rules.
-const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, sameStats, closestGear, historyVotes } = (({ norm, sim, fmt }) => {
+const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, steppedPrices, sameStats, closestGear, historyVotes } = (({ norm, sim, fmt }) => {
   const DAY_MS = 864e5;
   const WINDOWS = [3, 7, 14]; // days, shortest first, because prices move fast
   // Named sellers a usual price needs to be firm (raised from 3 on Nov 10, to be harder to fake)
@@ -30,6 +30,7 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNo
   const middle = prices => sorted(prices)[(prices.length - 1) >> 1];
   // Asks lean low: a fake high ask is free, but anyone can buy a fake low one.
   const lowerQuartile = prices => sorted(prices)[(prices.length - 1) >> 2];
+  const upperQuartile = prices => sorted(prices)[prices.length - 1 - ((prices.length - 1) >> 2)];
 
   // Whether two listings are the same seller's. The same name is. OCR can read one name two
   // ways (Loodles and Lood1es), which would look like two sellers, so a close name counts too,
@@ -310,20 +311,44 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNo
   // vote per seller. Asked is the lower quarter of each seller's standing ask, because a fake
   // high ask is free. Each needs FIRM_SELLERS named sellers, or that day has no point on that line: a
   // gap is better than a line drawn through one sale. dayStart gives a time's midnight.
+  // Today's point counts the 3 days to now, not to the coming midnight, and unknown sellers are
+  // one vote together, both as marketFor does, so the line ends on the usual price when that
+  // comes from 3 days of sales (Nov 14: a line ending at 15K under a usual price of 16K).
+  // low and high are the lower and upper quarter of the sellers' sale prices, for the band.
   const TREND_DAYS = WINDOWS[0];
   const localMidnight = t => new Date(t).setHours(0, 0, 0, 0);
-  function dailyPrices(votes, { dayStart = localMidnight } = {}) {
+  // One point of the trend, from the votes of the time it covers
+  function trendPoint(votes) {
+    const groups = bySeller(votes);
+    const sellers = groups.filter(g => g.votes.some(v => v.sold));
+    const sold = sellers.map(g => middle(g.votes.filter(v => v.sold).map(v => v.u)));
+    const standing = groups.filter(standingAsk);
+    const asks = standing.map(g => standingAsk(g).u);
+    const soldBy = sellers.filter(g => g.known).length, askedBy = standing.filter(g => g.known).length;
+    return {
+      sold: soldBy >= FIRM_SELLERS ? { price: middle(sold), sellers: soldBy, low: lowerQuartile(sold), high: upperQuartile(sold) } : null,
+      ask: askedBy >= FIRM_SELLERS ? { price: lowerQuartile(asks), sellers: askedBy } : null,
+    };
+  }
+  function dailyPrices(votes, { dayStart = localMidnight, now = Date.now() } = {}) {
     const days = [...new Set((votes || []).map(v => dayStart(v.t)))].sort((a, b) => a - b);
     return days.map(day => {
       const end = dayStart(day + 1.5 * DAY_MS); // the next midnight, whatever the clocks did
-      const groups = bySeller(votes.filter(v => v.t < end && v.t >= end - TREND_DAYS * DAY_MS)).filter(g => g.known);
-      const sold = groups.filter(g => g.votes.some(v => v.sold)).map(g => middle(g.votes.filter(v => v.sold).map(v => v.u)));
-      const asks = groups.map(standingAsk).filter(Boolean).map(v => v.u);
-      return {
-        day,
-        sold: sold.length >= FIRM_SELLERS ? { price: middle(sold), sellers: sold.length } : null,
-        ask: asks.length >= FIRM_SELLERS ? { price: lowerQuartile(asks), sellers: asks.length } : null,
-      };
+      const from = Math.min(end, now) - TREND_DAYS * DAY_MS;
+      return { day, ...trendPoint(votes.filter(v => v.t < end && v.t >= from)) };
+    });
+  }
+
+  // The trend over less than a week, where a point a day is too few: a point every `step`,
+  // counted back from now, for each step something was seen in, from the votes of the `look`
+  // before it. The same rules as a day's point, so it still takes 5 named sellers, now inside a
+  // much shorter time: short times only have a line while an item is busy and being scanned.
+  function steppedPrices(votes, { now = Date.now(), step, look }) {
+    const seen = (votes || []).filter(v => v.t <= now);
+    const steps = [...new Set(seen.map(v => Math.floor((now - v.t) / step)))].sort((a, b) => b - a);
+    return steps.map(k => {
+      const t = now - k * step;
+      return { t, ...trendPoint(seen.filter(v => v.t <= t && v.t > t - look)) };
     });
   }
 
@@ -354,7 +379,7 @@ const { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNo
     return votes;
   }
 
-  return { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, sameStats, closestGear, historyVotes };
+  return { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, steppedPrices, sameStats, closestGear, historyVotes };
 })(typeof module !== 'undefined' ? require('./pricing.js') : { norm, sim, fmt });
 
-if (typeof module !== 'undefined') module.exports = { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, sameStats, closestGear, historyVotes };
+if (typeof module !== 'undefined') module.exports = { marketFor, usualSource, verdict, priceRail, cheaperElsewhere, cheapestNow, soldSince, dailyPrices, steppedPrices, sameStats, closestGear, historyVotes };

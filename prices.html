@@ -212,21 +212,14 @@
   .chart { margin-top: 12px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--dusk); padding: 8px 10px 4px; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--mist); padding: 0 4px; }
   .legend i { display: inline-block; vertical-align: -1px; margin-right: 5px; }
-  .legend .l-ask { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--sky); }
-  .legend .l-sold { width: 8px; height: 8px; background: var(--meso); transform: rotate(45deg); }
   .legend .l-usual { width: 16px; border-top: 2px dashed var(--cloud); vertical-align: 3px; }
   .legend .l-npc { width: 16px; border-top: 2px dotted var(--exp); vertical-align: 3px; }
   .chart svg { display: block; width: 100%; height: auto; }
   .chart text { font: 500 11px var(--text); fill: var(--mist); }
   .chart .grid { stroke: var(--dusk); }
-  .chart .ask { fill: var(--night); stroke: var(--sky); stroke-width: 1.8; }
-  .chart .sold { fill: var(--meso); }
   .chart .usual { stroke: var(--cloud); stroke-dasharray: 6 4; stroke-width: 1.5; }
   .chart .npc { stroke: var(--exp); stroke-dasharray: 2 3; stroke-width: 1.5; }
-  .chart .over { fill: var(--hp); }
   .chart .grid.day { stroke-dasharray: 2 4; }
-  .chart .dense .ask { stroke-width: 1.4; opacity: 0.6; }
-  .chart .dense .sold { opacity: 0.7; }
   .chart .trend { fill: none; stroke-width: 2; stroke-linejoin: round; }
   .chart .trend.sold { stroke: var(--meso); }
   .chart .trend.ask { stroke: var(--sky); }
@@ -235,7 +228,32 @@
   .legend .l-trend { width: 16px; border-top: 2px solid; vertical-align: 3px; }
   .legend .l-trend.sold { border-color: var(--meso); }
   .legend .l-trend.ask { border-color: var(--sky); }
-  .chart-empty { padding: 50px 0; text-align: center; color: var(--mist); font-size: 13px; }
+  .legend .l-band { width: 16px; height: 9px; border-radius: 2px; background: var(--meso); opacity: 0.18; }
+  .chart .trend-band { fill: var(--meso); opacity: 0.14; }
+  .chart .trend-guide { stroke: var(--mist); stroke-width: 1; opacity: 0.6; pointer-events: none; }
+  .chart svg { touch-action: pan-y; }
+  /* The day under the pointer, beside its line (wireChart in prices.js) */
+  .plot { position: relative; }
+  .chart-tip { position: absolute; z-index: 1; pointer-events: none; margin-left: 10px; padding: 7px 10px; border-radius: 8px; background: var(--night); box-shadow: 0 0 0 1px var(--ridge), 0 4px 14px rgb(0 0 0 / 0.18); font-size: 14px; line-height: 1.4; white-space: nowrap; display: grid; }
+  .chart-tip[hidden] { display: none; }
+  .chart-tip.flip { margin-left: -10px; transform: translateX(-100%); }
+  .chart-tip .day { font-size: 14px; }
+  .chart-tip .row { margin-top: 4px; color: var(--mist); }
+  .chart-tip .row b { color: var(--cloud); font-size: 15px; }
+  .chart-tip .row i { display: inline-block; width: 12px; border-top: 2px solid; vertical-align: 4px; margin-right: 6px; }
+  .chart-tip .row i.sold { border-color: var(--meso); }
+  .chart-tip .row i.ask { border-color: var(--sky); }
+  .chart-tip small { color: var(--mist); font-size: 13px; padding-left: 18px; }
+  /* A chart that changed draws itself in: the scale fades in, each line runs left to right (its
+     pathLength is 1), then the points and the band appear. Not for people who turned motion off. */
+  @media (prefers-reduced-motion: no-preference) {
+    .chart.fresh svg { animation: chart-in 0.2s ease-out; }
+    .chart.fresh .trend { stroke-dasharray: 1; animation: line-in 0.55s cubic-bezier(0.3, 0, 0.2, 1) both; }
+    .chart.fresh .trend-dot, .chart.fresh .trend-band { animation: chart-in 0.3s ease-out 0.3s both; }
+  }
+  @keyframes chart-in { from { opacity: 0; } }
+  @keyframes line-in { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  .no-trend { margin-top: 14px; font-size: 13px; }
 
   .rows-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 18px 0 4px; }
   .rows-head h3 { font-size: 16px; margin: 0; }
@@ -297,6 +315,7 @@
     .card-controls { gap: 8px; }
     .seg button { padding: 4px 9px; }
     .chart { padding: 6px 4px 2px; }
+
 
     .rows-head { align-items: center; }
     .rows-head .phone-sort { display: inline-flex; margin-left: auto; }
